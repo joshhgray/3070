@@ -4,6 +4,10 @@ import csv
 import os
 
 def log_metrics(run_id, hyperparameters, fitness_results, validation_results, start_time, end_time):
+    # connect to metrics log
+    cd = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(cd, "metrics_log.csv")
+    
     timestamp = datetime.datetime.now().isoformat()
     runtime = end_time - start_time
 
@@ -24,9 +28,9 @@ def log_metrics(run_id, hyperparameters, fitness_results, validation_results, st
         # write out fitness/validation results
         # write out performance metrics
     }
-
-    with open('metrics_log.csv', 'a', newline="") as file:
+    file_exists = os.path.exists(file_path)
+    with open(file_path, 'a', newline="") as file:
         writer = csv.DictWriter(file, fieldnames=csv_row.keys())
-        if not os.path.isfile('metrics_log.csv'):
+        if not file_exists:
             writer.writeheader()
         writer.writerow(csv_row)

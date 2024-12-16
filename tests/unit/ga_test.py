@@ -56,7 +56,7 @@ class TestFitness(unittest.TestCase):
         for node in final_population.nodes:
             if final_population.nodes[node]["level"] == "Individual":
                 self.assertIsNotNone(final_population.nodes[node]["qed"])
-                self.assertGreaterEqual(final_population.nodes[node]["raw_fitness"], 0)
+                self.assertGreater(final_population.nodes[node]["raw_fitness"], 0)
 
 if __name__ == "__main__":
     unittest.main()

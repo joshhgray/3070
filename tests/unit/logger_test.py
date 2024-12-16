@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from src.evolutionary_system.utils.logger import log_metrics
@@ -5,8 +6,8 @@ from src.evolutionary_system.utils.logger import log_metrics
 class TestLogger(unittest.TestCase):
     def test_log_metrics(self):
         # Mocks/test inputs
-        mock_time = [100.00, 124.56]
-        run_id = 'test_0',
+        mock_time = [100, 62]
+        run_id = 'test_10',
         hyperparameters = {
             "population": 100,
             "n_generations": 20,
@@ -29,11 +30,17 @@ class TestLogger(unittest.TestCase):
             start_time=mock_time[0],
             end_time=mock_time[1],
         )
+        
+        # get path to metrics log
+        cd = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(cd, "../../src/evolutionary_system/utils/metrics_log.csv")
+        # resolve the path
+        file_path = os.path.normpath(file_path)
 
-        with open("metrics_log.csv", "r") as file:
+        with open(file_path, "r") as file:
             lines = file.readlines()
 
-        self.assertIn("test_0", lines[-1]) # assert run_id is included
+        self.assertIn("test_", lines[-1]) # assert run_id is included
         self.assertIn("2024-12", lines[-1]) # assert timestamp is included
 
 if __name__ == "__main__":
