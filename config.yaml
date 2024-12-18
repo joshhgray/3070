@@ -7,3 +7,4 @@ num_elite_individuals: 5
 num_elite_groups: 2
 selection_method: 'SUS'
 fitness_weights: [1.0, 1.0]
+num_threads: 1

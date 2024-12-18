@@ -20,6 +20,7 @@ def calculate_qed(smiles_str):
         return 0
     
 def calculate_diversity(population):
+    # TODO : Satisfy deprecation warning --> [20:43:06] DEPRECATION WARNING: please use MorganGenerator
     # Extract list of molecules from smiles strings
     individuals = [
         Chem.MolFromSmiles(population.nodes[node]["smiles_str"])
@@ -41,5 +42,4 @@ def calculate_diversity(population):
     avg_similarity = np.mean(similarity_scores) if similarity_score else 0
     
     population_diversity = 1 - avg_similarity
-    print(population_diversity)
     return population_diversity

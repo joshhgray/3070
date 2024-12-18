@@ -1,7 +1,15 @@
 import csv
 import os
 
-def log_metrics(run_id, time hyperparameters, fitness_results, validation_results):
+def log_metrics(run_id, 
+                timestamp, 
+                runtime, 
+                hyperparameters, 
+                fitness_results, 
+                validation_results,
+                mem_usage,
+                cpu_usage,
+                ):
     # connect to metrics log
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
@@ -13,12 +21,22 @@ def log_metrics(run_id, time hyperparameters, fitness_results, validation_result
     # get fitness/validation results
 
     csv_row = {
-        "timestamp": timestamp,
+        # Write run metadata
         "run_id": run_id,
+        "timestamp": timestamp,
         "runtime": runtime,
-        # write out hyperparameters
-        # write out fitness/validation results
-        # write out performance metrics
+        # Write hyperparameters from config
+        "population_size": hyperparameters["population_size"],
+        "num_generations": hyperparameters["num_generations"],
+        "mutation_rate": hyperparameters["mutation_rate"],
+        "crossover_rate": hyperparameters["crossover_rate"],
+        "num_elite_individuals": hyperparameters["num_elite_individuals"],
+        "num_elite_groups": hyperparameters["num_elite_groups"],
+        "fitness_weights": hyperparameters["fitness_weights"],
+        "num_threads": hyperparameters["num_threads"],
+        
+        # TODO - write out fitness/validation results
+        # TODO - write out performance metrics
     }
     file_exists = os.path.exists(file_path)
     with open(file_path, 'a', newline="") as file:

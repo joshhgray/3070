@@ -13,11 +13,20 @@ def crossover(p1, p2):
     child2 = p2[:crossover_point] + p1[crossover_point:]
     return child1, child2 
 
-def run_ga(population, n_generations=5):
+def run_ga(initial_population, 
+           population_size, 
+           num_generations, 
+           mutation_rate, 
+           crossover_rate, 
+           num_elite_individuals,
+           num_elite_groups,
+           selection_method,
+           fitness_weights,
+           num_threads):
 
-    working_population = make_graph(population)
+    working_population = make_graph(initial_population)
 
-    for generation in range(n_generations):
+    for generation in range(num_generations):
         # Evaluate Fitness
         for node in working_population.nodes:
             # Only need to access individuals here
