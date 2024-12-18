@@ -1,0 +1,38 @@
+________________________________
+Week 10: Finishing Prototype
+________________________________
+Centralize hyperparameters (config.yaml)
+    - [ ] Create config.yaml with stored hyperparameters
+    - [ ] Test integration with GA
+Automate GA worflow (controller.py)
+    - [ ] Can read config file, run GA, log metrics
+    - [ ] Integration testing
+Finish setting up logging
+    - [ ] Add remaining hyperparameters to logger.py
+    - [ ] Integration testing
+Create visualization tool
+    - [ ] Finish setting up log_visualizer.py
+    - [ ] Integration testing
+Build basic UI
+    - [ ] hyperparameter input
+    - [ ] Start/Stop GA
+    - [ ] View Logs
+Write thorough documentation
+    - [ ] Structure
+    - [ ] How to use system
+    - [ ] How to interpret logs
+_____________________________________________________________________
+Daily Log:
+
+Monday: set up basic diversity calculation fitness.py w/ unit testing.
+Tuesday:
+Wednesday:
+Thursday:
+Friday:
+Saturday:
+Sunday:
+______________________________________________________________________
+Reflection:
+- Achieved: 
+- Challenges:
+- Next Week:
