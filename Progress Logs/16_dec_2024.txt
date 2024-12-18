@@ -2,7 +2,7 @@ ________________________________
 Week 10: Finishing Prototype
 ________________________________
 Centralize hyperparameters (config.yaml)
-    - [ ] Create config.yaml with stored hyperparameters
+    - [x] Create config.yaml with stored hyperparameters
     - [ ] Test integration with GA
 Automate GA worflow (controller.py)
     - [ ] Can read config file, run GA, log metrics
@@ -25,7 +25,8 @@ _____________________________________________________________________
 Daily Log:
 
 Monday: set up basic diversity calculation fitness.py w/ unit testing.
-Tuesday:
+Tuesday: set up config file and loader + integration testing.
+         built template controller.py
 Wednesday:
 Thursday:
 Friday:

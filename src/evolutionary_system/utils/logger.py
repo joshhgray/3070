@@ -1,24 +1,16 @@
-import datetime
-import psutil # type: ignore
 import csv
 import os
 
-def log_metrics(run_id, hyperparameters, fitness_results, validation_results, start_time, end_time):
+def log_metrics(run_id, time hyperparameters, fitness_results, validation_results):
     # connect to metrics log
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
     
-    timestamp = datetime.datetime.now().isoformat()
-    runtime = end_time - start_time
+    
 
-    process = psutil.Process()
-    # Calcuate starting Memory
-    # Calculate starting CPU usage
 
     # get hyperparameters (e.g., population size, n_generations)
     # get fitness/validation results
-
-
 
     csv_row = {
         "timestamp": timestamp,
