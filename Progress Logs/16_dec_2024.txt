@@ -27,7 +27,7 @@ Daily Log:
 Monday: set up basic diversity calculation fitness.py w/ unit testing.
 Tuesday: set up config file and loader + integration testing.
          built template controller.py
-Wednesday: worked on controller - will test integration later tonight
+Wednesday: worked on controller, added smiles pool and pop generator
 Thursday:
 Friday:
 Saturday:

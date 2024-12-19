@@ -14,17 +14,15 @@ def log_metrics(run_id,
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
     
-    
-
-
     # get hyperparameters (e.g., population size, n_generations)
     # get fitness/validation results
 
     csv_row = {
-        # Write run metadata
+        # Write run's metadata
         "run_id": run_id,
         "timestamp": timestamp,
         "runtime": runtime,
+        
         # Write hyperparameters from config
         "population_size": hyperparameters["population_size"],
         "num_generations": hyperparameters["num_generations"],
@@ -36,7 +34,10 @@ def log_metrics(run_id,
         "num_threads": hyperparameters["num_threads"],
         
         # TODO - write out fitness/validation results
-        # TODO - write out performance metrics
+        
+        # Write performance metrics
+        "mem_usage": mem_usage,
+        "cpu_usage": cpu_usage
     }
     file_exists = os.path.exists(file_path)
     with open(file_path, 'a', newline="") as file:

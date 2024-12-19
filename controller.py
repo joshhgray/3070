@@ -17,8 +17,7 @@ def unpack_fitness_results(final_population):
                 "smiles_str": final_population.nodes[node]["smiles_str"],
                 "raw_fitness": final_population.nodes[node]["raw_fitness"]
                 # TODO - add remaining results
-            })
-            
+            })    
     
 def start_ga():
     # Setup benchmarking tools
@@ -38,7 +37,6 @@ def start_ga():
     # Set up and run GA
     config = load_config()
     
-    # TODO - make a temporary population 
     population = make_graph()
     final_population = run_ga(
         population=population,
