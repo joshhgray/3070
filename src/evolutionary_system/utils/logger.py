@@ -14,9 +14,6 @@ def log_metrics(run_id,
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
     
-    # get hyperparameters (e.g., population size, n_generations)
-    # get fitness/validation results
-
     csv_row = {
         # Write run's metadata
         "run_id": run_id,

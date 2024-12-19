@@ -2,6 +2,7 @@ from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
 from src.data_pipeline.make_graph import make_graph
+from src.data_pipeline.load_population import load_initial_population
 import datetime
 import psutil
 import uuid
@@ -36,10 +37,10 @@ def start_ga():
     
     # Set up and run GA
     config = load_config()
+    initial_population = make_graph(load_initial_population())
     
-    population = make_graph()
     final_population = run_ga(
-        population=population,
+        population=initial_population,
         population_size=config["population_size"],
         num_generations=config["num_generations"],
         mutation_rate=config["mutation_rate"],
@@ -54,6 +55,7 @@ def start_ga():
     # End benchmarking
     end_time = time.time()
     runtime = end_time - start_time
+    # using oneshot here because I plan on running additional processing benchmarks
     with process.oneshot():
         cpu_usage = process.cpu_percent(interval=None)
         # TODO - implement continuous memory tracking
@@ -68,3 +70,5 @@ def start_ga():
                 mem_usage=0, # TODO - handle mem calc
                 cpu_usage=cpu_usage,
                 )
+
+start_ga()
