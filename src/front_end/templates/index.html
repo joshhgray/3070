@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GA Control Panel</title>
+    </head>
+
+    <body>
+        <h1>Genetic Algorithm Control Panel</h1>
+        <h2>Set Hyperparameters<h2>
+        <form method="POST">
+            {% for key, value in hyperparameters.items() %}
+                <label for="{{ key }}">{{ key }}</label>
+                <input type="text" id="J{{ key }}" name="{{ key }}" value="{{ value }}">
+                <br>
+            {% endfor %}
+            <button type="submit">Save</button>
+
+
+
+
+
+    </body>
+</html>

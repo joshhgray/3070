@@ -8,6 +8,8 @@ import psutil
 import uuid
 import time
 
+# TODO - move into src/evolutionary_systm
+
 def start_ga():
     # Setup benchmarking tools
     
@@ -63,4 +65,4 @@ def start_ga():
                 cpu_usage=cpu_usage,
                 )
 
-start_ga()
+#start_ga()

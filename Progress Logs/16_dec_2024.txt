@@ -30,7 +30,7 @@ Tuesday: set up config file and loader + integration testing.
 Wednesday: worked on controller, added smiles pool and pop generator
 Thursday: GA workflow now automated, some kinks to work out and 
           testing to do.
-Friday:
+Friday: putting up basic front end
 Saturday:
 Sunday:
 ______________________________________________________________________
