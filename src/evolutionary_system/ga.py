@@ -1,5 +1,5 @@
 import random
-from src.evolutionary_system.fitness import calculate_qed
+from src.evolutionary_system.fitness import calculate_qed, calculate_diversity
 from src.data_pipeline.make_graph import make_graph
 
 def mutate(smiles_str):
@@ -24,9 +24,8 @@ def run_ga(initial_population,
            fitness_weights,
            num_threads):
 
-    working_population = make_graph(initial_population)
-
     for generation in range(num_generations):
+        working_population = initial_population
         # Evaluate Fitness
         for node in working_population.nodes:
             # Only need to access individuals here
@@ -59,6 +58,13 @@ def run_ga(initial_population,
             node_name = f"Individual_1_{i + 1}"
             if node_name in working_population.nodes:
                 working_population.nodes[node_name]["smiles_str"] = individual
-
+        
+        working_population.nodes[node]
+        
+        # Calculate population-wide diversity
+        diversity = calculate_diversity(working_population)
+        working_population.nodes["Population"]["diversity"] = diversity
+        print(working_population.nodes["Population"]["diversity"])
+        
     return working_population
 

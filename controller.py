@@ -8,18 +8,6 @@ import psutil
 import uuid
 import time
 
-# not sure if i'm going to keep this in here
-# will do the same for validation results
-def unpack_fitness_results(final_population):
-    fitness_results = []
-    for node in final_population.nodes:
-        if final_population.nodes[node]["level"] == "Individual":
-            fitness_results.append({
-                "smiles_str": final_population.nodes[node]["smiles_str"],
-                "raw_fitness": final_population.nodes[node]["raw_fitness"]
-                # TODO - add remaining results
-            })    
-    
 def start_ga():
     # Setup benchmarking tools
     
@@ -40,17 +28,21 @@ def start_ga():
     initial_population = make_graph(load_initial_population())
     
     final_population = run_ga(
-        population=initial_population,
+        initial_population=initial_population,
         population_size=config["population_size"],
         num_generations=config["num_generations"],
         mutation_rate=config["mutation_rate"],
         crossover_rate=config["crossover_rate"],
         num_elite_individuals=config["num_elite_individuals"],
         num_elite_groups=config["num_elite_groups"],
+        selection_method=config["selection_method"],
         fitness_weights=config["fitness_weights"],
         num_threads=config["num_threads"]
     )
-    fitness_results = unpack_fitness_results(final_population)
+    
+    # TODO - append other fitness results
+    fitness_results = []
+    fitness_results.append(float(final_population.nodes["Population"]["diversity"]))
     
     # End benchmarking
     end_time = time.time()
@@ -65,7 +57,7 @@ def start_ga():
                 timestamp,
                 runtime=runtime,
                 hyperparameters=config,
-                fintess_resutls=fitness_results,
+                fitness_results=fitness_results,
                 validation_results={}, # TODO - handle val res
                 mem_usage=0, # TODO - handle mem calc
                 cpu_usage=cpu_usage,

@@ -6,18 +6,20 @@ Root Node: Represents whole population
 Group Nodes: Represent clusters of individuals
 Individual Nodes: Represent individual compounds
 """
-
-import networkx as nx # type: ignore
-
+from rdkit import RDLogger
+import networkx as nx
+import numpy as np
 """
 Input: population - list of SMILES strings
 Output: Graph representing hierarchy of population - an nx.DiGraph
 """
 def make_graph(population):
+    # TODO - Temporary suppression of rdlogger
+    RDLogger.DisableLog('rdApp.*')
 
     # Total number of groups
-    num_groups = 4
-    individuals_per_group = len(population) // num_groups
+    num_groups = 5
+    groups = np.array_split(population, num_groups)
 
     # Initialize graph
     population_graph = nx.DiGraph()
@@ -26,7 +28,10 @@ def make_graph(population):
     population_graph.add_node("Population", level="Root", diversity=None)
 
     # Initialize group and individual nodes
-    for group_id in range(1, num_groups+1):
+    for group_id, group in enumerate(groups, start=1):
+        # Convert back to list - not sure if neccessary
+        group = list(group)
+        
         # Initalize group nodes
         group_name = f"Group_{group_id}"
         population_graph.add_node(group_name, 
@@ -34,11 +39,6 @@ def make_graph(population):
                         total_fitness=None, 
                         average_fitness=None) 
         population_graph.add_edge("Population", group_name)
-
-        # Create evenly sized groups
-        group_start = (group_id - 1) * individuals_per_group
-        group_end = group_start + individuals_per_group
-        group = population[group_start:group_end]
 
         # Initizlize individual nodes
         for individual_id, smiles_str in enumerate(group, start=1):

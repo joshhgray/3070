@@ -31,6 +31,7 @@ def log_metrics(run_id,
         "num_threads": hyperparameters["num_threads"],
         
         # TODO - write out fitness/validation results
+        "fitness_results": fitness_results,
         
         # Write performance metrics
         "mem_usage": mem_usage,

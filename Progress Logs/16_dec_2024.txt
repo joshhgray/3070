@@ -5,10 +5,10 @@ Centralize hyperparameters (config.yaml)
     - [x] Create config.yaml with stored hyperparameters
     - [ ] Test integration with GA
 Automate GA worflow (controller.py)
-    - [ ] Can read config file, run GA, log metrics
+    - [x] Can read config file, run GA, log metrics
     - [ ] Integration testing
 Finish setting up logging
-    - [ ] Add remaining hyperparameters to logger.py
+    - [x] Add remaining hyperparameters to logger.py
     - [ ] Integration testing
 Create visualization tool
     - [ ] Finish setting up log_visualizer.py
@@ -28,7 +28,8 @@ Monday: set up basic diversity calculation fitness.py w/ unit testing.
 Tuesday: set up config file and loader + integration testing.
          built template controller.py
 Wednesday: worked on controller, added smiles pool and pop generator
-Thursday:
+Thursday: GA workflow now automated, some kinks to work out and 
+          testing to do.
 Friday:
 Saturday:
 Sunday:
