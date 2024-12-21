@@ -6,7 +6,7 @@ import plotly.express as px #type: ignore
 import yaml # type: ignore
 import os
 from threading import Thread
-from controller import start_ga, stop_ga
+from src.controller import start_ga#, stop_ga
 
 app = dash.Dash(__name__)
 
@@ -163,19 +163,20 @@ def start_ga_callback(n_clicks, is_running):
         return "GA already running."
     return "Click 'Start GA'.", is_running
 
-@app.callback(
-    [Output("ga-status", "children"),
-     Output("ga-running", "data")],
-     Input("stop-ga-button", "n_clicks"),
-     State("ga-running", "data")
-)
-def stop_ga_callback(n_clicks, is_running):
-    if n_clicks > 0:
-        if is_running:
-            stop_ga()
-            return "Stopping GA..."
-        return "GA not running."
-    return "Click 'Stop GA' to halt the process.", is_running
+# TODO - Uncomment once fully implemented in backend
+# @app.callback(
+#     [Output("ga-status", "children"),
+#      Output("ga-running", "data")],
+#      Input("stop-ga-button", "n_clicks"),
+#      State("ga-running", "data")
+# )
+# def stop_ga_callback(n_clicks, is_running):
+#     if n_clicks > 0:
+#         if is_running:
+#             stop_ga()
+#             return "Stopping GA..."
+#         return "GA not running."
+#     return "Click 'Stop GA' to halt the process.", is_running
 
 
 

@@ -9,8 +9,6 @@ import uuid
 import time
 
 
-# TODO - move into src/evolutionary_systm
-
 def start_ga():
 
     # Setup benchmarking tools
