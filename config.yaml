@@ -1,10 +1,11 @@
-# Genetic algorithm hyperparameters
-population_size: 500
-num_generations: 5
+crossover_rate: 0.4
+fitness_weights:
+- 1
+- 1
 mutation_rate: 0.2
-crossover_rate: 0.5
-num_elite_individuals: 5
-num_elite_groups: 2
-selection_method: 'SUS'
-fitness_weights: [1.0, 1.0]
+num_elite_groups: 3
+num_elite_individuals: 4
+num_generations: 20
 num_threads: 1
+population_size: 90
+selection_method: SUS

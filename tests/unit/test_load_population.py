@@ -1,6 +1,6 @@
 from src.data_pipeline.load_population  import load_initial_population
 import unittest
-from rdkit import Chem
+from rdkit import Chem #type: ignore
 
 class TestLoadPopulation(unittest.TestCase):
     def test_load_initial_population(self):

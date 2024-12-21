@@ -23,8 +23,10 @@ def run_ga(initial_population,
            selection_method,
            fitness_weights,
            num_threads):
+    global is_running
 
     for generation in range(num_generations):
+
         working_population = initial_population
         # Evaluate Fitness
         for node in working_population.nodes:

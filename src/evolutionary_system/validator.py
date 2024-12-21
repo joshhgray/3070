@@ -1,7 +1,7 @@
 '''
 Validation functions
 '''
-from rdkit import Chem, RDLogger
+from rdkit import Chem, RDLogger #type: ignore
 
 '''
 Function to validate the authenticity of a given smiles string

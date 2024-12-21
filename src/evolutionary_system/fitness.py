@@ -1,8 +1,8 @@
 # Base fitness function
-from rdkit import Chem 
-from rdkit.Chem import QED, AllChem
-from rdkit.DataStructs import TanimotoSimilarity
-import numpy as np
+from rdkit import Chem #type: ignore
+from rdkit.Chem import QED, AllChem #type: ignore
+from rdkit.DataStructs import TanimotoSimilarity #type: ignore
+import numpy as np #type: ignore
 
 def calculate_qed(smiles_str):
     """

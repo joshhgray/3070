@@ -4,13 +4,15 @@ from src.evolutionary_system.ga import run_ga
 from src.data_pipeline.make_graph import make_graph
 from src.data_pipeline.load_population import load_initial_population
 import datetime
-import psutil
+import psutil # type: ignore
 import uuid
 import time
+
 
 # TODO - move into src/evolutionary_systm
 
 def start_ga():
+
     # Setup benchmarking tools
     
     # Generate run_id (primary key) with uuid4
@@ -64,5 +66,5 @@ def start_ga():
                 mem_usage=0, # TODO - handle mem calc
                 cpu_usage=cpu_usage,
                 )
-
+    
 #start_ga()

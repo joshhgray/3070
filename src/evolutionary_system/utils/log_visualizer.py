@@ -1,6 +1,6 @@
 import os
-import pandas as pd
-import matplotlib.pyplot as plt
+import pandas as pd #type: ignore
+import matplotlib.pyplot as plt #type: ignore
 
 def read_log():
     cd = os.path.dirname(os.path.abspath(__file__))
