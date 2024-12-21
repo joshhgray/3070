@@ -14,8 +14,8 @@ Create visualization tool
     - [ ] Finish setting up log_visualizer.py
     - [ ] Integration testing
 Build basic UI
-    - [ ] hyperparameter input
-    - [ ] Start/Stop GA
+    - [x] hyperparameter input
+    - [/] Start/Stop GA
     - [ ] View Logs
 Write thorough documentation
     - [ ] Structure
@@ -24,15 +24,16 @@ Write thorough documentation
 _____________________________________________________________________
 Daily Log:
 
-Monday: set up basic diversity calculation fitness.py w/ unit testing.
-Tuesday: set up config file and loader + integration testing.
-         built template controller.py
-Wednesday: worked on controller, added smiles pool and pop generator
-Thursday: GA workflow now automated, some kinks to work out and 
-          testing to do.
-Friday: putting up basic front end
-Saturday:
-Sunday:
+Monday   | set up basic diversity calculation fitness.py w/ unit testing.
+Tuesday  | set up config file and loader + integration testing.
+         : built template controller.py
+Wednesday| worked on controller, added smiles pool and pop generator
+Thursday | GA workflow now automated, some kinks to work out and 
+         : testing to do.
+Friday   | basic front end - attempted w/ flask - I was too unfamiliar -
+         : building w/ plotly instead
+Saturday |
+Sunday   |
 ______________________________________________________________________
 Reflection:
 - Achieved: 

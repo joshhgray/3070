@@ -5,6 +5,8 @@ import pandas as pd #type: ignore
 import plotly.express as px #type: ignore
 import yaml # type: ignore
 import os
+from threading import Thread
+from controller import start_ga, stop_ga
 
 app = dash.Dash(__name__)
 
@@ -71,7 +73,7 @@ app.layout = html.Div([
                 dcc.Input(
                     id="fitness-weight-b",
                     type="number",
-                    value=1.0, step=0.1
+                    value=1.0, step=1
                 )
             ]),
         ]),
@@ -84,6 +86,7 @@ app.layout = html.Div([
     html.Div([
         html.Button("Start GA", id="start-ga-button", n_clicks=0),
         html.Button("Stop GA", id="stop-ga-button", n_clicks=0),
+        html.Div(id="ga-status")
     ]),
 
     # TODO - integrate graphics
@@ -91,6 +94,7 @@ app.layout = html.Div([
     dcc.Graph(id="ga-viz", style={"hegiht": "500px"}),
     
     dcc.Store(id="current-config", data=config),
+    dcc.Store(id="ga-running", data=False),
     
 ])
 
@@ -103,7 +107,9 @@ app.layout = html.Div([
         Input("crossover-rate-slider", "value"),
         Input("num-elite-individuals-slider", "value"),
         Input("num-elite-groups-slider", "value"),
-        # TODO - Add Selection Method and Fitness Weight Selection
+        Input("selection-method-dropdown", "value"),
+        Input("fitness-weight-a", "value"),
+        Input("fitness-weight-b", "value"),
         Input("num-threads-slider", "value")
     ],
     State("current-config", "data")
@@ -114,7 +120,9 @@ def update_config(population_size,
                   crossover_rate, 
                   num_elite_individuals, 
                   num_elite_groups,
-                  # TODO - Add Selection Method and Fitness Weight Selection
+                  selection_method,
+                  fitness_weight_a,
+                  fitness_weight_b,
                   num_threads,
                   current_config):
     current_config["population_size"] = population_size
@@ -123,7 +131,8 @@ def update_config(population_size,
     current_config["crossover_rate"] = crossover_rate
     current_config["num_elite_individuals"] = num_elite_individuals
     current_config["num_elite_groups"] = num_elite_groups
-    # TODO - Add Selection Method and Fitness Weight Selection
+    current_config["selection_method"] = selection_method
+    current_config["fitness_weigths"] = [fitness_weight_a, fitness_weight_b]
     current_config["num_threads"] = num_threads
     return current_config
 
@@ -137,6 +146,37 @@ def save_config(n_clicks, current_config):
         save_hyperparameters(current_config)
         return "Saved config."
     return ""
+
+@app.callback(
+    [Output("ga-status", "children"),
+     Output("ga-running", "data")],
+     Input("start-ga-button", "n_clicks"),
+     State("ga-running", "data")
+)
+def start_ga_callback(n_clicks, is_running):
+    if n_clicks > 0:
+        if not is_running:
+            # open new thread to run the GA
+            thread = Thread(target=start_ga)
+            thread.start()
+            return "GA Started..."
+        return "GA already running."
+    return "Click 'Start GA'.", is_running
+
+@app.callback(
+    [Output("ga-status", "children"),
+     Output("ga-running", "data")],
+     Input("stop-ga-button", "n_clicks"),
+     State("ga-running", "data")
+)
+def stop_ga_callback(n_clicks, is_running):
+    if n_clicks > 0:
+        if is_running:
+            stop_ga()
+            return "Stopping GA..."
+        return "GA not running."
+    return "Click 'Stop GA' to halt the process.", is_running
+
 
 
 if __name__ == "__main__":

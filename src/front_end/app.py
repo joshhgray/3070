@@ -1,1 +1,1 @@
-import flask
+import flask #type: ignore

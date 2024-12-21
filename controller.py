@@ -66,5 +66,10 @@ def start_ga():
                 mem_usage=0, # TODO - handle mem calc
                 cpu_usage=cpu_usage,
                 )
+
+#def stop_ga():
+    # TODO - implement stopping feature
+
+
     
 #start_ga()
