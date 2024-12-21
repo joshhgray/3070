@@ -1,3 +1,5 @@
+from src.evolutionary_system.fitness import calculate_diversity
+
 import csv
 import os
 

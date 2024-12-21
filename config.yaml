@@ -1,11 +1,14 @@
-crossover_rate: 0.4
+crossover_rate: 0.1
 fitness_weights:
 - 1
 - 1
+fitness_weigths:
+- 1
+- 1
 mutation_rate: 0.2
-num_elite_groups: 3
-num_elite_individuals: 4
+num_elite_groups: 1
+num_elite_individuals: 1
 num_generations: 20
 num_threads: 1
-population_size: 90
-selection_method: SUS
+population_size: 100
+selection_method: sus

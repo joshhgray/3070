@@ -11,7 +11,7 @@ Finish setting up logging
     - [x] Add remaining hyperparameters to logger.py
     - [ ] Integration testing
 Create visualization tool
-    - [ ] Finish setting up log_visualizer.py
+    - [x] Finish setting up log_visualizer.py
     - [ ] Integration testing
 Build basic UI
     - [x] hyperparameter input
@@ -32,7 +32,9 @@ Thursday | GA workflow now automated, some kinks to work out and
          : testing to do.
 Friday   | basic front end - attempted w/ flask - I was too unfamiliar -
          : building w/ plotly instead
-Saturday |
+Saturday | integrated Diversity chart into GA Dashboard. Population ->
+         : run GA -> view results pipeline fully automated. Can expand
+         : individual components now. Lots of integration testing tmr
 Sunday   |
 ______________________________________________________________________
 Reflection:

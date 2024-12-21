@@ -6,7 +6,10 @@ import plotly.express as px #type: ignore
 import yaml # type: ignore
 import os
 from threading import Thread
-from src.controller import start_ga#, stop_ga
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from .controller import start_ga#, stop_ga
+import numpy as np
 
 app = dash.Dash(__name__)
 
@@ -19,6 +22,17 @@ def load_hyperparameters():
 def save_hyperparameters(hyperparameters):
     with open(config_path, "w") as file:
         yaml.dump(hyperparameters, file)
+
+def load_diversity_log(file_path="src/evolutionary_system/utils/metrics_log.csv"):
+    try:
+        data = pd.read_csv(file_path)
+        fitness_results = data["fitness_results"].iloc[-1]
+        fitness_results = eval(fitness_results) 
+        diversity_log = fitness_results.get("diversity", [])
+        return [float(value) for value in diversity_log]
+    except (FileNotFoundError, KeyError, SyntaxError) as e:
+        print(f"Error loading diversity log: {e}")
+        return []
     
 config = load_hyperparameters()
 
@@ -89,9 +103,16 @@ app.layout = html.Div([
         html.Div(id="ga-status")
     ]),
 
-    # TODO - integrate graphics
-    # placeholder
-    dcc.Graph(id="ga-viz", style={"hegiht": "500px"}),
+    html.Div([
+        html.Button("Update Results", id="update-results-button", n_clicks=0)
+    ]),
+
+    # Data Visualizations
+    # TODO - Add more graphics for benchmarks
+    html.Div([
+        html.H2("Diversity by Generation"),
+        dcc.Graph(id="diversity-graph")
+    ]),
     
     dcc.Store(id="current-config", data=config),
     dcc.Store(id="ga-running", data=False),
@@ -178,8 +199,25 @@ def start_ga_callback(n_clicks, is_running):
 #         return "GA not running."
 #     return "Click 'Stop GA' to halt the process.", is_running
 
-
+@app.callback(
+        Output("diversity-graph", "figure"),
+        Input("update-results-button", "n_clicks")
+)
+def update_diversity_graph(n_clicks):
+    if n_clicks > 0:
+        diversity_log = load_diversity_log()
+        generations = list(range(1, len(diversity_log) + 1))
+        fig = px.line(
+            x=generations,
+            y=diversity_log,
+            labels={"x": "Generation", "y": "Diversity"},
+            title="Diversity by Generation"
+        )
+        return fig
+    return px.line(
+        labels={"x": "Generation", "y": "Diversity"},
+        title="Diversity by Generation"
+    )
 
 if __name__ == "__main__":
     app.run_server(debug=True)
-

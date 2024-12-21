@@ -29,7 +29,7 @@ def start_ga():
     config = load_config()
     initial_population = make_graph(load_initial_population())
     
-    final_population = run_ga(
+    final_population, diversity_log = run_ga(
         initial_population=initial_population,
         population_size=config["population_size"],
         num_generations=config["num_generations"],
@@ -43,8 +43,7 @@ def start_ga():
     )
     
     # TODO - append other fitness results
-    fitness_results = []
-    fitness_results.append(float(final_population.nodes["Population"]["diversity"]))
+    fitness_results = {'diversity': diversity_log}
     
     # End benchmarking
     end_time = time.time()
