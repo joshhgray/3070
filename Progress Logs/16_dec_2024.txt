@@ -18,7 +18,7 @@ Build basic UI
     - [/] Start/Stop GA
     - [ ] View Logs
 Write thorough documentation
-    - [ ] Structure
+    - [/] Structure
     - [ ] How to use system
     - [ ] How to interpret logs
 _____________________________________________________________________
@@ -35,9 +35,16 @@ Friday   | basic front end - attempted w/ flask - I was too unfamiliar -
 Saturday | integrated Diversity chart into GA Dashboard. Population ->
          : run GA -> view results pipeline fully automated. Can expand
          : individual components now. Lots of integration testing tmr
-Sunday   | 
+Sunday   | Formalizing plan for testing integration.
+         : Fixed fitness calculation within GA
+         : Worked on drawing new system diagrams and user stories
 ______________________________________________________________________
 Reflection:
-- Achieved: 
-- Challenges:
-- Next Week:
+- Achieved: I have a working MVP
+- Challenges: Was facing a lot of issues trying to build front-end with
+              flask so I switch to using Dash since I have more exp,
+              still took a lot of time.
+              
+              I think this project is simple enough that big bang
+              integration testing should work. I will need to evaluate.
+- Next Week: Still need to test everything I've built this week
