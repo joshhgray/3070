@@ -5,10 +5,10 @@ fitness_weights:
 fitness_weigths:
 - 1
 - 1
-mutation_rate: 0.2
+mutation_rate: 0.1
 num_elite_groups: 1
 num_elite_individuals: 1
-num_generations: 20
+num_generations: 100
 num_threads: 1
-population_size: 100
+population_size: 490
 selection_method: sus

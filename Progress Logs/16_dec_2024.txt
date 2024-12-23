@@ -35,7 +35,7 @@ Friday   | basic front end - attempted w/ flask - I was too unfamiliar -
 Saturday | integrated Diversity chart into GA Dashboard. Population ->
          : run GA -> view results pipeline fully automated. Can expand
          : individual components now. Lots of integration testing tmr
-Sunday   |
+Sunday   | 
 ______________________________________________________________________
 Reflection:
 - Achieved: 

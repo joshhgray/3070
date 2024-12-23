@@ -26,9 +26,11 @@ def start_ga():
     process.cpu_percent(interval=None)
     
     # Set up and run GA
+    print("Loading config and generating initial population...")
     config = load_config()
     initial_population = make_graph(load_initial_population())
     
+    print("Running GA...")
     final_population, diversity_log = run_ga(
         initial_population=initial_population,
         population_size=config["population_size"],
@@ -54,6 +56,7 @@ def start_ga():
         # TODO - implement continuous memory tracking
     
     # TODO - fill rest of parameters
+    print("Logging Metrics...")
     log_metrics(run_id,
                 timestamp,
                 runtime=runtime,
@@ -63,6 +66,7 @@ def start_ga():
                 mem_usage=0, # TODO - handle mem calc
                 cpu_usage=cpu_usage,
                 )
+    print("Simulation complete.")
 
 #def stop_ga():
     # TODO - implement stopping feature

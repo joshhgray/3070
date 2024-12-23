@@ -22,31 +22,31 @@ def run_ga(initial_population,
            selection_method,
            fitness_weights,
            num_threads):
-    global is_running
+    
     diversity_log = []
+    working_population = initial_population
+
+    # Evaluate  Initial Fitness
+    for node in working_population.nodes:
+        if working_population.nodes[node]["level"] == "Individual":
+            smiles_str = working_population.nodes[node]['smiles_str']
+            # this will eventually just take an all encompasing fitness function
+            # where all metrics are calculated at once
+            working_population.nodes[node]["qed"] = calculate_qed(smiles_str)
+            # will be calculated in fitness.py later - this is temporary
+            working_population.nodes[node]['raw_fitness'] = working_population.nodes[node]["qed"]
 
     for generation in range(num_generations):
 
-        working_population = initial_population
-        # Evaluate Fitness
-        for node in working_population.nodes:
-            # Only need to access individuals here
-            if working_population.nodes[node]["level"] == "Individual":
-                smiles_str = working_population.nodes[node]['smiles_str']
-                # this will eventually just take an all encompasing fitness function
-                # where all metrics are calculated at once
-                working_population.nodes[node]["qed"] = calculate_qed(smiles_str)
-                # will be calculated in fitness.py later - this is temporary
-                working_population.nodes[node]['raw_fitness'] = working_population.nodes[node]["qed"]
-
-        # top half of population
+        # Selection TODO - apply an proper selection technique
+        # Currently just selected top half of population based on raw fitness
         individuals = [node for node in working_population.nodes if working_population.nodes[node]["level"] == "Individual"]
         sorted_individuals = sorted(individuals,
                                     key=lambda x: working_population.nodes[x]["raw_fitness"], 
                                     reverse=True)
         parents = sorted_individuals[: len(sorted_individuals) // 2]
 
-        #crossover operation
+        # Crossover 
         new_population = [] 
         for i in range(0, len(parents) -1, 2): # 2 parents
             p1 = working_population.nodes[parents[i]]["smiles_str"]
@@ -55,18 +55,20 @@ def run_ga(initial_population,
             new_population.append(child1)
             new_population.append(child2)
 
-        # graph update, build new pop
+        # Update graph (Build new population)
         for i, individual in enumerate(new_population):
             node_name = f"Individual_1_{i + 1}"
             if node_name in working_population.nodes:
                 working_population.nodes[node_name]["smiles_str"] = individual
+                # TODO - same comments as initial fitness evaluation
+                working_population.nodes[node_name]["qed"] = calculate_qed(smiles_str)
+                working_population.nodes[node_name]['raw_fitness'] = working_population.nodes[node]["qed"]
         
         working_population.nodes[node]
         
         # Calculate population-wide diversity
         diversity = calculate_diversity(working_population)
         working_population.nodes["Population"]["diversity"] = diversity
-
         diversity_log.append(diversity)
         
     return working_population, diversity_log

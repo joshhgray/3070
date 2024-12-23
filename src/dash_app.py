@@ -9,7 +9,7 @@ from threading import Thread
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga#, stop_ga
-import numpy as np
+import numpy as np # type: ignore
 
 app = dash.Dash(__name__)
 
@@ -42,9 +42,9 @@ app.layout = html.Div([
     html.Div([
         # Sliders for hyperparameters
         html.Label("Population Size"),
-        dcc.Slider(id="population-size-slider", min=10, max=800, step=10, value=config.get("population_size")),
+        dcc.Slider(id="population-size-slider", min=50, max=800, step=50, value=config.get("population_size")),
         html.Label("Number of Generations"),
-        dcc.Slider(id="num-generations-slider", min=5, max=500, step=10, value=config.get("num_generations")),
+        dcc.Slider(id="num-generations-slider", min=5, max=500, step=25, value=config.get("num_generations")),
         html.Label("Mutation Rate"),
         dcc.Slider(id="mutation-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("mutation_rate")),
         html.Label("Crossover Rate"),
@@ -52,7 +52,7 @@ app.layout = html.Div([
         html.Label("Number of Elites (Individuals)"),
         dcc.Slider(id="num-elite-individuals-slider", min=1, max=10, step=1, value=config.get("num_elite_individuals")),
         html.Label("Number of Elites (Groups)"),
-        dcc.Slider(id="num-elite-groups-slider", min=1, max=10, step=1, value=config.get("num_elite_groups")),
+        dcc.Slider(id="num-elite-groups-slider", min=1, max=5, step=1, value=config.get("num_elite_groups")),
         html.Label("Number of threads"),
         # TODO - adjust when implementing Multi-threading
         dcc.Slider(id="num-threads-slider", min=1, max=1, step=1, value=1),
