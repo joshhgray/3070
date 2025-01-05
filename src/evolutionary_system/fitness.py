@@ -13,11 +13,11 @@ def calculate_qed(smiles_str):
         if mol: # Valid compound
             return QED.qed(mol)
         else: # Invalid compound
-            return 0
+            return 0.0
 
     except Exception as e:
         print(f"Error calculating QED for {smiles_str}: {e}")
-        return 0
+        return 0.0
     
 def calculate_diversity(population):
     # TODO : Satisfy deprecation warning --> [20:43:06] DEPRECATION WARNING: please use MorganGenerator
@@ -39,7 +39,6 @@ def calculate_diversity(population):
             similarity_score = TanimotoSimilarity(fingerprints[i], fingerprints[j])
             similarity_scores.append(similarity_score)
             
-    avg_similarity = np.mean(similarity_scores) if similarity_score else 0
-    
+    avg_similarity = float(np.mean(similarity_scores)) if similarity_scores else 0
     population_diversity = 1 - avg_similarity
     return population_diversity

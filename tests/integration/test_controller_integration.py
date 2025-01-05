@@ -1,12 +1,14 @@
 import os
 import unittest
 import pytest #type:ignore
+import networkx as nx
 from src.controller import start_ga
 from src.evolutionary_system.utils.config_loader import load_config
 
 class TestControllerIntegration(unittest.TestCase):
     def setUp(self):
         self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config.yaml")
+        self.config = load_config()
 
     def test_config_file_exists(self):
         """ Test that the config file exists """
@@ -14,39 +16,27 @@ class TestControllerIntegration(unittest.TestCase):
         
     def test_load_config(self):
         """ Test that the config file is fully loaded"""
-        config = load_config()
-        self.assertIsInstance(config, dict)
-        self.assertIn("crossover_rate", config)
-        self.assertIn("fitness_weights", config)
-        self.assertIn("mutation_rate", config)
-        self.assertIn("num_elite_groups", config)
-        self.assertIn("num_elite_individuals", config)
-        self.assertIn("num_generations", config)
-        self.assertIn("num_threads", config)
-        self.assertIn("population_size", config)
-        self.assertIn("selection_method", config)
+        
+        self.assertIsInstance(self.config, dict)
+        self.assertIn("crossover_rate", self.config)
+        self.assertIn("fitness_weights", self.config)
+        self.assertIn("mutation_rate", self.config)
+        self.assertIn("num_elite_groups", self.config)
+        self.assertIn("num_elite_individuals", self.config)
+        self.assertIn("num_generations", self.config)
+        self.assertIn("num_threads", self.config)
+        self.assertIn("population_size", self.config)
+        self.assertIn("selection_method", self.config)
 
-
-    def test_build_initial_population():
-        """ 
-        Test the initial population is properly loaded 
-        and made into a graph.
-        """
-        # TODO - test whether initial population is made
-        assert True # TODO - temp
-
-    def test_controller_to_ga():
+    def test_controller_to_ga(self):
         """ Test controller integration with ga """
         final_population, diversity_log = start_ga()
 
-        # TODO - validate final population
-        # TODO - validate diversity log
-        assert True # TODO - temp
+        # Verify final population
+        self.assertIsInstance(final_population, nx.DiGraph)
 
-    def test_controller_to_dash():
-        """ Test Controller interaction with Dash """
-        # TODO -add debug logs
-        assert True # TODO - temp
-    
+        # Verify diversity log
+        self.assertEqual(len(diversity_log), self.config["num_generations"])
+
 if __name__ == "__main__":
     unittest.main()
