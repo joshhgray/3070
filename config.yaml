@@ -8,7 +8,7 @@ fitness_weigths:
 mutation_rate: 0.1
 num_elite_groups: 1
 num_elite_individuals: 1
-num_generations: 100
+num_generations: 25
 num_threads: 1
-population_size: 490
+population_size: 100
 selection_method: sus

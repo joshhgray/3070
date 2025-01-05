@@ -1,5 +1,5 @@
-import plotly.express as px
-import pandas as pd
+import plotly.express as px #type:ignore
+import pandas as pd#type:ignore
 
 def plot_diversity(num_generations, diversity_log):
     '''

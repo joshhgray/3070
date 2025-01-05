@@ -1,5 +1,6 @@
 import random
 from src.evolutionary_system.fitness import calculate_qed, calculate_diversity
+from rdkit import Chem #type:ignore
 
 def mutate(smiles_str):
     # TODO: Basic mutation
@@ -72,4 +73,3 @@ def run_ga(initial_population,
         diversity_log.append(diversity)
         
     return working_population, diversity_log
-
