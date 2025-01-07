@@ -18,7 +18,7 @@ def make_graph(population):
     RDLogger.DisableLog('rdApp.*')
 
     # Total number of groups
-    num_groups = 5
+    num_groups = 5 # TODO - make dynamic
     groups = np.array_split(population, num_groups)
 
     # Initialize graph

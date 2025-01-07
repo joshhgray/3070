@@ -1,6 +1,6 @@
-import pytest
-from dash.testing.application_runners import import_app
-import yaml
+import pytest #type:ignore
+from dash.testing.application_runners import import_app #type:ignore
+import yaml #type:ignore
 
 class TestDashApp:
     

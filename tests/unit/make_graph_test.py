@@ -55,13 +55,24 @@ class TestMakeGraph(unittest.TestCase):
     def test_graph_exists(self):
         # Test that the components of the graph exist
         
-        graph = make_graph(self.test_population)
+        test_pop_graph = make_graph(self.test_population)
 
-        # Test root node
-        self.assertIn("Population", graph.nodes)
-        # Test group nodes
+        # Verify root node exists
+        self.assertIn("Population", test_pop_graph.nodes)
 
-        # test individual nodes
+        # Verify group nodes exist
+        group_nodes = [node for node in test_pop_graph.nodes 
+                       if test_pop_graph.nodes[node]["level"] == "Group"]
+        
+        for group_name in group_nodes:
+            self.assertIn(group_name, test_pop_graph.nodes)
+
+        # Verify individual nodes exist
+        individual_nodes = [node for node in test_pop_graph.nodes
+                            if test_pop_graph.nodes[node]["level"] == "Individual"]
+        
+        for individual_name in individual_nodes:
+            self.assertIn(individual_name, test_pop_graph.nodes)
 
 if __name__ == "__main__":
     unittest.main()
