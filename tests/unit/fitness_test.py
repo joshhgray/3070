@@ -65,6 +65,8 @@ class TestFitness(unittest.TestCase):
         self.diversity_score = calculate_diversity(self.population)
         self.assertGreater(self.diversity_score, 0)
         self.assertLess(self.diversity_score, 1.0) # in case every mol is equal
+
+    # TODO - Test other fitness function calculations as they are added
         
 
 if __name__ == "__main__":
