@@ -1,6 +1,7 @@
 import dash #type: ignore
 from dash import dcc, html, Input, Output, State #type: ignore
-from dash.dependencies import Input, Output #type: ignore
+from dash.dependencies import Input, Output#type: ignore
+import dash_bootstrap_components as dbc #type: ignore
 import pandas as pd #type: ignore
 import plotly.express as px #type: ignore
 import yaml # type: ignore
@@ -11,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga#, stop_ga
 import numpy as np # type: ignore
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.YETI])
 
 config_path = os.path.abspath("config.yaml")
 
@@ -36,88 +37,91 @@ def load_diversity_log(file_path="src/evolutionary_system/utils/metrics_log.csv"
     
 config = load_hyperparameters()
 
-app.layout = html.Div([
-    html.H1("GA Dashboard"),
+app.layout = dbc.Container([
+    dbc.Row(
+        dbc.Col(html.H1("GA Dashboard"), width={"size": 4, "offset": 3}),
+        className="mb-4"
+    ),
+    dbc.Row([
+        # Config
+        dbc.Col([
+            html.H2("Configuration"),
+                # Hyperparameters Adjustment Section
+                dbc.Card([
+                    dbc.CardHeader("Hyperparameters"),
+                    dbc.CardBody([
+                        # Population Size Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Population Size", html_for="population-size-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="population-size-slider", min=50, max=800, step=50, value=config.get("population_size")), width=6),
+                        ]),
+                        # Number of Generations Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Number of Generations", html_for="num-generations-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="num-generations-slider", min=5, max=500, step=50, value=config.get("num_generations")), width=6),
+                        ]),
+                        # Mutation Rate Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Mutation Rate", html_for="mutation-rate-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="mutation-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("mutation_rate")), width=6),
+                        ]),
+                        # Crossover Rate Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Crossover Rate", html_for="crossover-rate-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="crossover-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("crossover_rate")), width=6),
+                        ], className="conf"),
+                        # Number of Elite Individuals Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Number of Elites (Individuals)", html_for="num-elite-individuals-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="num-elite-individuals-slider", min=1, max=10, step=1, value=config.get("num_elite_individuals")), width=6),
+                        ]),
+                        # Number of Elite Groups Slider
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Number of Elites (Groups)", html_for="num-elite-groups-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="num-elite-groups-slider", min=1, max=5, step=1, value=config.get("num_elite_groups")), width=6),
+                        ]),
+                        # Number of Threads Slider
+                        # TODO - adjust when implementing Multi-threading
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Number of Threads", html_for="num-threads-slider"), width=2),
+                            dbc.Col(dcc.Slider(id="num-threads-slider", min=1, max=1, step=1, value=1), width=6),
+                        ]),
+                        # Selection Method Dropdown Menu
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Selection Method", html_for='selection-method-dropdown'), width=2),
+                            dbc.Col(dcc.Dropdown(id='selection-method-dropdown', options=[{"label": "Stochastic Universal Sampling", "value": "sus"}], value="sus", clearable=False))
+                        ]),
+                        # Fitness Weight Selection
+                        dbc.Row([
+                            dbc.Col(dbc.Label("Fitness Weights")),
+                            dbc.Col(dbc.Label("Scaling Factor A", html_for='fitness-weight-a'), width=1),
+                            dbc.Col(dcc.Input(id="fitness-weight-a", type="number", value=1.0, step=0.1)),
+                            dbc.Col(dbc.Label("Scaling Factor B", html_for='fitness-weight-b'), width=1),
+                            dbc.Col(dcc.Input(id="fitness-weight-b", type="number", value=1.0, step=0.1)),
 
-    html.Div([
-        # Sliders for hyperparameters
-        html.Label("Population Size"),
-        dcc.Slider(id="population-size-slider", min=50, max=800, step=50, value=config.get("population_size")),
-        html.Label("Number of Generations"),
-        dcc.Slider(id="num-generations-slider", min=5, max=500, step=25, value=config.get("num_generations")),
-        html.Label("Mutation Rate"),
-        dcc.Slider(id="mutation-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("mutation_rate")),
-        html.Label("Crossover Rate"),
-        dcc.Slider(id="crossover-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("crossover_rate")),
-        html.Label("Number of Elites (Individuals)"),
-        dcc.Slider(id="num-elite-individuals-slider", min=1, max=10, step=1, value=config.get("num_elite_individuals")),
-        html.Label("Number of Elites (Groups)"),
-        dcc.Slider(id="num-elite-groups-slider", min=1, max=5, step=1, value=config.get("num_elite_groups")),
-        html.Label("Number of threads"),
-        # TODO - adjust when implementing Multi-threading
-        dcc.Slider(id="num-threads-slider", min=1, max=1, step=1, value=1),
+                        ]),
+                        
+                    ]),
+                ]),
+                dbc.Button("Start GA", id="start-ga-button", color="primary"),
+                dbc.Button("Stop GA", id="stop-ga-button", color="primary"),
+                dcc.Store(id="current-config", data=config),
+                dcc.Store(id="ga-running", data=False),
+                dbc.Badge(id="ga-status"), 
 
-        # Dropdown for selection method
-        html.Div([
-            html.Label("Selection Method"),
-            dcc.Dropdown(
-                id="selection-method-dropdown",
-                options=[
-                    {"label": "Stochastic Universal Selection", "value": "sus"},
-                    # TODO - Add other selection methods
-                    ],
-                value="sus",
-                clearable=False
-            )
+                # Visualizations Sections
+                dbc.Col([                     
+                    html.H2("Visualizations"),
+                    dbc.Button("Update Results", id="update-results-button"),
+                    dbc.Card([
+                        dbc.CardHeader("Population Level Diversity by Generation"),
+                        dbc.CardBody(dcc.Graph(id="diversity-graph")),
+                    ]),
+                ], width=8),
         ]),
-
-        # Inputs for fitness weights
-        html.Div([
-            html.Label("Fitness Weights"),
-            html.Div([
-                html.Label("Scaling Factor A"),
-                dcc.Input(
-                    id="fitness-weight-a",
-                    type="number",
-                    value=1.0, step=0.1
-                )
-            ]),
-            html.Div([
-                html.Label("Scaling Factor B"),
-                dcc.Input(
-                    id="fitness-weight-b",
-                    type="number",
-                    value=1.0, step=1
-                )
-            ]),
-        ]),
-
-        # Save Button
-        html.Button("Save Config", id="save-button", n_clicks=0),
-        html.Div(id="save-status")
-    ]),
-
-    html.Div([
-        html.Button("Start GA", id="start-ga-button", n_clicks=0),
-        html.Button("Stop GA", id="stop-ga-button", n_clicks=0),
-        html.Div(id="ga-status")
-    ]),
-
-    html.Div([
-        html.Button("Update Results", id="update-results-button", n_clicks=0)
-    ]),
-
-    # Data Visualizations
-    # TODO - Add more graphics for benchmarks
-    html.Div([
-        html.H2("Diversity by Generation"),
-        dcc.Graph(id="diversity-graph")
-    ]),
-    
-    dcc.Store(id="current-config", data=config),
-    dcc.Store(id="ga-running", data=False),
-    
 ])
+], fluid=True),
+
 
 @app.callback(
     Output("current-config", "data"),
@@ -153,58 +157,52 @@ def update_config(population_size,
     current_config["num_elite_individuals"] = num_elite_individuals
     current_config["num_elite_groups"] = num_elite_groups
     current_config["selection_method"] = selection_method
-    current_config["fitness_weigths"] = [fitness_weight_a, fitness_weight_b]
+    current_config["fitness_weights"] = [fitness_weight_a, fitness_weight_b]
     current_config["num_threads"] = num_threads
-    return current_config
+
+    save_hyperparameters(current_config)
+    return "Configuration Updated."
+
 
 @app.callback(
-    Output("save-status", "children"),
-    Input("save-button", "n_clicks"),
-    State("current-config", "data")
-)
-def save_config(n_clicks, current_config):
-    if n_clicks > 0:
-        save_hyperparameters(current_config)
-        return "Saved config."
-    return ""
-
-@app.callback(
-    [Output("ga-status", "children"),
-     Output("ga-running", "data")],
+    [Output("ga-status", "children", allow_duplicate=True),
+     Output("ga-running", "data", allow_duplicate=True)],
      Input("start-ga-button", "n_clicks"),
-     State("ga-running", "data")
+     State("ga-running", "data"),
+     # Initial call prevention required for duplicate outputs
+     prevent_initial_call=True
 )
 def start_ga_callback(n_clicks, is_running):
-    if n_clicks > 0:
+    if n_clicks and n_clicks > 0:
         if not is_running:
             # open new thread to run the GA
             thread = Thread(target=start_ga)
             thread.start()
-            return "GA Started..."
-        return "GA already running."
+            return "GA Started...", is_running
+        return "GA already running.", is_running
     return "Click 'Start GA'.", is_running
 
 # TODO - Uncomment once fully implemented in backend
-# @app.callback(
-#     [Output("ga-status", "children"),
-#      Output("ga-running", "data")],
-#      Input("stop-ga-button", "n_clicks"),
-#      State("ga-running", "data")
-# )
-# def stop_ga_callback(n_clicks, is_running):
-#     if n_clicks > 0:
-#         if is_running:
-#             stop_ga()
-#             return "Stopping GA..."
-#         return "GA not running."
-#     return "Click 'Stop GA' to halt the process.", is_running
+@app.callback(
+    [Output("ga-status", "children", allow_duplicate=True),
+     Output("ga-running", "data", allow_duplicate=True)],
+     Input("stop-ga-button", "n_clicks"),
+     State("ga-running", "data"),
+     # Initial call prevention required for duplicate outputs
+     prevent_initial_call=True,
+)
+def stop_ga_callback(n_clicks, is_running):
+    if n_clicks and n_clicks > 0:
+        return "", is_running
+    return "", is_running
+
 
 @app.callback(
         Output("diversity-graph", "figure"),
         Input("update-results-button", "n_clicks")
 )
 def update_diversity_graph(n_clicks):
-    if n_clicks > 0:
+    if n_clicks and n_clicks > 0:
         diversity_log = load_diversity_log()
         generations = list(range(1, len(diversity_log) + 1))
         fig = px.line(
@@ -218,6 +216,7 @@ def update_diversity_graph(n_clicks):
         labels={"x": "Generation", "y": "Diversity"},
         title="Diversity by Generation"
     )
+
 
 if __name__ == "__main__":
     app.run_server(debug=True)
