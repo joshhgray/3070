@@ -1,41 +1,56 @@
-from Bio import Entrez#type:ignore
+from Bio import Entrez #type:ignore
+import time
 
-class DataCollector:
-    def __init__(self, email, output_dir="data", batch_size=10, db="nucleotide"):
-        self.db = db
-        self.output_dir = output_dir
-        self.batch_size = batch_size
-        Entrez.email = email
+def collect_ncbi_data(search_term, output_file, email, database, file_format, retmax):
+    """
+    Query NCBI GenBank database with the given search terms. Collect each entry's ID
+    and then downloads queried entries in batches.
 
+    :param search_term: Term(s) used to query the database.
+    :param output_file: Where GenBank data will be stored.
+    :param email: Required by NCBI
+    :param database: Selected NCBI database to query.
+    :param file_format: Selected data format.
+    :param retmax: Maximum number of entries to be returned.
 
-    def search_metagenomes(self, search_term, retmax=100):
-        try:
-            handle = Entrez.esearch(db=self.db, term=search_term, retmax=retmax)
-            record = Entrez.read(handle)
-            return record.get("IdList", [])
-        except Exception as e:
-            print(f"error: {e}")
-            return []
+    :output metagenome_data.gb:
+    """
 
-    
-    def fetch_metagenomes(self, ids, file_format="gb"):
-        # TODO - do
-        pass
+    Entrez.email = email
 
-    def save_metagenomes(self):
-        # TODO - do
-        pass
+    try:
+        stream = Entrez.esearch(db=database, term=search_term, retmax=retmax, usehistory="y", idtype="acc")
+        search_results = Entrez.read(stream)
+        stream.close()
 
-        
-if __name__ == "__main__":
-    # Data Collector Parameters
-    email = "jg198@student.london.ac.uk"
+        ids = search_results.get("IdList", [])
+
+        with open(output_file, "w") as file:
+            """
+            Without an API, NCBI limits users to 3 queries per second.
+            Thus, search results are broken into batches and downloaded batchwise.
+            """
+
+            for i in range(0, len(ids), 3):
+                batch_ids = ids[i: i+3]
+                try:
+                    batch_stream = Entrez.efetch(db=database, id=",".join(batch_ids), rettype=file_format, retmode="text")
+                    file.write(batch_stream.read())
+                    batch_stream.close()
+                    # Pause 1 second to respect rate limit
+                    time.sleep(1)
+                except Exception as e:
+                    print(f"Error: {e}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+def run_collector():
     search_term = "metagenome[ORGN] AND contig"
-    output_dir = "metagenome_data" # TODO - Align file
+    output_file = "../../data/metagenome_data.gb"
+    email = "jg198@student.london.ac.uk"
     database = "nucleotide"
-    collector = DataCollector(email,
-                              output_dir=output_dir,
-                              search_term=search_term,
-                              db=database)
-
-
+    file_format = "gb"
+    # Total number of results for current search term, as of January 2025
+    retmax = 659
+    collect_ncbi_data(search_term, output_file, email, database, file_format, retmax)
