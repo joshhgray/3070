@@ -1,9 +1,6 @@
 ________________________________
-Week 12: Finish Integration Testing and 
+Week 12: Bio Data collection and pre-processing
 ________________________________
-Write Integration Tests - Extend Functionality
-    - [x] test_dash_app.py
-    - [x] logger_test.py
 Write debug msgs for each test in:
     - [ ] test_controller_integration.py
     - [ ] test_dash_app.py
@@ -12,6 +9,15 @@ Write thorough documentation
     - [/] Structure
     - [ ] How to use system
     - [ ] How to interpret logs
+Build Data Collector
+    - [x] Write data_collector.py
+    - [x] Successfully query, download, and save data
+Data Presprocessing
+    - [ ] Define new preprocessing pipeline (given switch to graph-based mols)
+    - [ ] ...
+Build Population Pool
+    - [ ] Build and store a pool of potential molecules
+    - [ ] Test integration with GA
 _____________________________________________________________________
 Daily Log:
 
@@ -19,9 +25,9 @@ Monday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Tuesday  | Wrote tests for dash app, make_graph, log_metrics
 Wednesday| - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Thursday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Friday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Saturday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Sunday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Friday   | work on data collection system
+Saturday | finish data collection system
+Sunday   | Download data, some preliminary analysis
 ______________________________________________________________________
 Reflection:
 - Achieved: 

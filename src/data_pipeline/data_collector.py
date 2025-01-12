@@ -1,5 +1,6 @@
 from Bio import Entrez #type:ignore
 import time
+import os
 
 def collect_ncbi_data(search_term, output_file, email, database, file_format, retmax):
     """
@@ -27,7 +28,7 @@ def collect_ncbi_data(search_term, output_file, email, database, file_format, re
 
         with open(output_file, "w") as file:
             """
-            Without an API, NCBI limits users to 3 queries per second.
+            Without an API key, NCBI limits users to 3 queries per second.
             Thus, search results are broken into batches and downloaded batchwise.
             """
 
@@ -46,11 +47,17 @@ def collect_ncbi_data(search_term, output_file, email, database, file_format, re
         print(f"Error: {e}")
 
 def run_collector():
+
+    cd = os.path.dirname(os.path.abspath(__file__))
+    output_file = os.path.join(cd, '../../data/metagenome_data.gb')
+
     search_term = "metagenome[ORGN] AND contig"
-    output_file = "../../data/metagenome_data.gb"
     email = "jg198@student.london.ac.uk"
     database = "nucleotide"
     file_format = "gb"
     # Total number of results for current search term, as of January 2025
     retmax = 659
     collect_ncbi_data(search_term, output_file, email, database, file_format, retmax)
+
+# Run the Data Collector
+run_collector()
