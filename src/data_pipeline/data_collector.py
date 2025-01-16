@@ -59,5 +59,12 @@ def run_collector():
     retmax = 659
     collect_ncbi_data(search_term, output_file, email, database, file_format, retmax)
 
-# Run the Data Collector
-run_collector()
+"""
+To run the data collector:
+1. Uncomment the function call below
+2. Open a Terminal instance at the root directory
+3. Ensure you are working with the correct interpreter
+4. In the terminal, type "python3 -m src.data_pipeline.data_collector"
+5. Wait for the process to complete or end it early by pressing "Ctrl+C"
+"""
+#run_collector()

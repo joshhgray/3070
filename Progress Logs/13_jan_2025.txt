@@ -1,0 +1,51 @@
+________________________________
+Week 12: Bio Data collection and pre-processing
+________________________________
+
+Data Presprocessing
+    - [x] Define new preprocessing pipeline (given switch to graph-based mols)
+    - [ ] Elementary data cleaning to remove non-essential data (e.g., submission date, keywords, etc.)
+    - [ ] Build CDS feature extractor
+    - [ ] Build protein coding region extractor
+    - [ ] Build BGS extractor
+    - [ ] Build filter with definable thresholds for molecules (e.g, length (bp))
+    - [ ] Build fragmentation software - breaking down seqs into smaller sizs
+          TBD - length of fragments (1k? 5k? 10?)
+Build Population Pool
+    - [ ] Choose a graph building software (e.g, networkX - which i have the advantage of exp w/)
+    - [ ] Build and store a pool of potential molecules
+Population Building Integration
+    - [ ] Build random sampling function to extract a random set of 'mols' from the population pool to run the GA
+    - [ ] Test integration with GA
+
+
+_________________________________________________________
+Daily Log:
+
+Monday   | Defined new pre-processing plan
+Tuesday  | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Wednesday| - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Thursday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Friday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Saturday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Sunday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+______________________________________________________________________
+Reflection:
+- Achieved: 
+- Challenges:
+- Next Week:
+
+_____________________________________________________________________
+BACKLOG:
+
+Write debug msgs for each test in:
+    - [ ] test_controller_integration.py
+    - [ ] test_dash_app.py
+    - [ ] test_ga_integration.py
+Write thorough documentation
+    - [/] Structure
+    - [ ] How to use system
+    - [ ] How to interpret logs
+Modularize GA
+    - [ ] Modularize each genetic operation
+____________
