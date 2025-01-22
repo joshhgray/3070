@@ -1,8 +1,7 @@
 from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
-from src.data_pipeline.make_graph import make_graph
-from src.data_pipeline.load_population import load_initial_population
+from src.data_pipeline.population_builder import build_population
 import datetime
 import psutil # type: ignore
 import uuid
@@ -28,7 +27,7 @@ def start_ga():
     # Set up and run GA
     print("Loading config and generating initial population...")
     config = load_config()
-    initial_population = make_graph(load_initial_population())
+    initial_population = build_population("../mibig_json_4.0")
     
     print("Running GA...")
     final_population, diversity_log = run_ga(

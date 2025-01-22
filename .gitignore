@@ -1,2 +1,7 @@
 venv/
 data/*
+fastq_files/*
+population_metadata.csv
+contig_files/*
+archive/*
+mibig_json_4.0/*

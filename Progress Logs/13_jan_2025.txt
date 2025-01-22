@@ -3,37 +3,45 @@ Week 12: Bio Data collection and pre-processing
 ________________________________
 
 Data Presprocessing
-    - [x] Define new preprocessing pipeline (given switch to graph-based mols)
-    - [ ] Elementary data cleaning to remove non-essential data (e.g., submission date, keywords, etc.)
-    - [ ] Build CDS feature extractor
-    - [ ] Build protein coding region extractor
-    - [ ] Build BGS extractor
-    - [ ] Build filter with definable thresholds for molecules (e.g, length (bp))
-    - [ ] Build fragmentation software - breaking down seqs into smaller sizs
-          TBD - length of fragments (1k? 5k? 10?)
+    - [x] Define new preprocessing pipeline (given switch to graph-
+          based mols)
+    - [x] Elementary data cleaning to remove non-essential data (e.g., 
+          submission date, keywords, etc.)
+    - [x] Download Sample data
+    - [ ] Download Sample runs
+    - [ ] use MGnify API to extract relevant biolgoical data
+    - [ ] combine data together so it can be fed to graph building
+          software
 Build Population Pool
-    - [ ] Choose a graph building software (e.g, networkX - which i have the advantage of exp w/)
-    - [ ] Build and store a pool of potential molecules
+    - [x] Choose a graph building software (e.g, networkX )
+    - [ ] Design plan for graph
+    - [ ] Write graph-building software
 Population Building Integration
-    - [ ] Build random sampling function to extract a random set of 'mols' from the population pool to run the GA
+    - [ ] Build random sampling function to extract a random set of 
+          'mols' from the population pool to run the GA
     - [ ] Test integration with GA
 
 
-_________________________________________________________
+_____________________________________________________________________
 Daily Log:
 
 Monday   | Defined new pre-processing plan
 Tuesday  | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Wednesday| - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Thursday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Friday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Saturday | - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Sunday   | - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Wednesday| Manual Biological Preprocessing (BGC extraction)
+Thursday | More manual bio pre-processing, started working on graph 
+         : building functionality
+Friday   | format test population into json for easy conversion to 
+         : graph-based representation
+Saturday | More data collection and pre-processing
+Sunday   | More data collection and pre-processing
 ______________________________________________________________________
 Reflection:
 - Achieved: 
-- Challenges:
-- Next Week:
+- Challenges: getting external resources to work correctly, using a novel 
+              population building mechanic
+- Next Week: hopefully finish collecting necessary data to build an intial 
+             population and then build that initial population. So I can 
+             get moving core functionalities.
 
 _____________________________________________________________________
 BACKLOG:

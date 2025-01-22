@@ -13,7 +13,8 @@ Build Data Collector
     - [x] Write data_collector.py
     - [x] Successfully query, download, and save data
 Data Presprocessing
-    - [ ] Define new preprocessing pipeline (given switch to graph-based mols)
+    - [ ] Define new preprocessing pipeline (given switch to graph-
+          based mols)
     - [ ] ...
 Build Population Pool
     - [ ] Build and store a pool of potential molecules
