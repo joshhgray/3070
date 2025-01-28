@@ -2,16 +2,11 @@ import random
 from src.evolutionary_system.fitness import calculate_qed, calculate_diversity
 from rdkit import Chem #type:ignore
 
-def mutate(smiles_str):
-    # TODO: Basic mutation
-    return smiles_str
+def mutate():
+    pass
 
-def crossover(p1, p2):
-    # Basic crossover operation, splitting at random location and combining halves
-    crossover_point = random.randint(1, len(p1) - 1)
-    child1 = p1[:crossover_point] + p2[crossover_point:]
-    child2 = p2[:crossover_point] + p1[crossover_point:]
-    return child1, child2 
+def crossover():
+    pass
 
 def run_ga(initial_population, 
            population_size, 

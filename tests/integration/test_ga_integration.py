@@ -1,6 +1,6 @@
 import pytest #type:ignore
 from src.evolutionary_system.ga import run_ga
-from archive.make_graph import make_graph
+from src.data_pipeline.make_graph import make_graph
 
 # TODO - break up into separate functions
 def test_ga(mock_population, mock_config):
