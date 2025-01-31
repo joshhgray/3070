@@ -7,31 +7,11 @@ Group Nodes: Represent clusters of individuals
 Individual Nodes: Represent individual compounds
 """
 from collections import defaultdict
-from rdkit import RDLogger
+#from rdkit import RDLogger
 import networkx as nx
 import numpy as np
 import json
 import os
-
-# TODO - separate functionality?
-def load_bgc_jsons(json_dir):
-    """
-    Load in BGC JSON files 
-
-    :param json_dir: Directory contain BGC JSON files.
-    :returns: List of parsed BGC data.
-    """
-    bgc_data = []
-    for file in os.listdir(json_dir):
-        if file.endswith(".json"):
-            file_path = os.path.jion(json_dir, file)
-            with open(file_path, "r") as f:
-                data = json.load(f)
-                bgc_data.append(data)
-
-    return bgc_data
-
-
 
 def make_population_graph(bgc_data):
     """
@@ -42,7 +22,7 @@ def make_population_graph(bgc_data):
     :returns: NetworkX DiGraph representing the hierarchical population structure
     """
     # TODO - Temporary suppression of rdlogger
-    RDLogger.DisableLog('rdApp.*')
+    #RDLogger.DisableLog('rdApp.*')
 
     # Group BGCs by biosynthesis class
     # Default missing attributes to "Unknown"

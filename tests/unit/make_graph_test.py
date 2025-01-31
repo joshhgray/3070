@@ -1,5 +1,5 @@
 import unittest
-from src.data_pipeline.make_graph import make_population_graph
+from src.data_pipeline.make_population_graph import make_population_graph
 
 
 class TestMakeGraph(unittest.TestCase):

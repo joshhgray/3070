@@ -1,9 +1,9 @@
 from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
-from src.data_pipeline.population_builder import build_population
+from src.data_pipeline.make_population_graph import make_population_graph
 import datetime
-import psutil # type: ignore
+import psutil
 import uuid
 import time
 
@@ -23,15 +23,17 @@ def start_ga():
     '''
     process = psutil.Process()
     process.cpu_percent(interval=None)
+    config = load_config
     
     # Set up and run GA
-    print("Loading config and generating initial population...")
-    config = load_config()
-    initial_population = build_population("../mibig_json_4.0")
+    # TODO - random sample the population pool to requested size
+    #rs_bgc_data = TODO
+    # initial_population = make_population_graph(rs_bgc_data, num_bgcs) TODO
+    
     
     print("Running GA...")
     final_population, diversity_log = run_ga(
-        initial_population=initial_population,
+        #initial_population=initial_population, TODO
         population_size=config["population_size"],
         num_generations=config["num_generations"],
         mutation_rate=config["mutation_rate"],
