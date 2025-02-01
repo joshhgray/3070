@@ -16,8 +16,8 @@ class TestMolToGraph(unittest.TestCase):
         ]
         self.invalid_smiles_strs = [
             # Manually invalidated
-            "assdddf", # bond failure
-            "sxxfds", # dangling ring closure
+            "c1((=O)[O-])c[nH]c(Cl)c1Cl", # bond failure
+            "[invalid]1cc(c(Cl)c1Cl)[N+](=O)[O-]", 
             "",
             None,
             0
