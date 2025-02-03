@@ -3,37 +3,37 @@ This is a basic implementation of a Hierarchical encoding schema
 for the Multi-Level Selection Genetic Algorithm (MLSGA).
 
 Root Node: Represents whole population
-Group Nodes: Represent clusters of individuals
-Individual Nodes: Represent individual compounds
+Group Nodes: Represent clusters of BGCs
+Individual Nodes: Represent individual BGCs
 """
 from collections import defaultdict
 #from rdkit import RDLogger
 import networkx as nx
-import numpy as np
-import json
-import os
+from src.data_pipeline.sample_population import sample_bgcs
 
-def make_population_graph(bgc_data):
+def make_population_graph(population_size):
     """
     Build a hierarchical graphical representation of the population based on 
     the BGC JSON data
 
-    :param bgc_data: List of parsed BGC data.
-    :returns: NetworkX DiGraph representing the hierarchical population structure
+    :param population_size: Size of initial population.
+    :returns: NetworkX DiGraph representing the hierarchical population structure.
     """
-    # TODO - Temporary suppression of rdlogger
-    #RDLogger.DisableLog('rdApp.*')
+
+    sampled_bgcs = sample_bgcs(population_size)
+    print(sampled_bgcs)
 
     # Group BGCs by biosynthesis class
     # Default missing attributes to "Unknown"
     groups = defaultdict(list)
-    for bgc in bgc_data:
+    for bgc in sampled_bgcs:
         biosynthesis_classes = [
             biosynthesis_class.get("class", "Unknown") 
             for biosynthesis_class in bgc.get("biosynthesis", {}).get("classes", [])
         ]
+
         if not biosynthesis_classes:
-            biosynthesis_classes = ["Unkown"]
+            biosynthesis_classes = ["Unknown"]
         for biosynthesis_class in biosynthesis_classes:
             groups[biosynthesis_class].append(bgc)
 
@@ -47,14 +47,13 @@ def make_population_graph(bgc_data):
         diversity=0.0,
         total_fitness=0.0,
         total_mass=0.0,
-        total_cyclic_count=0 # TODO - decide if relevant
     )
 
     # Add Group and Inidividual-level nodes
     """
     TODO - I've added some extra attributes here, I don't have a plan to use
     them but if there is remote possibility I could use them I will keep them
-    so I can use them later on.
+    so I can use them later on. Attributes can be commented out.
     """
     for group_name, group_bgcs in groups.items():
         population_graph.add_node(
@@ -76,12 +75,30 @@ def make_population_graph(bgc_data):
                 biosynthesis_class.get("class", "Unknown")
                 for biosynthesis_class in bgc.get("biosynthesis", {}).get("classes", [])
             ]
-            structure = bgc.get("compounds", [{}])[0].get("structure", "Unknown")
-            mass = bgc.get("compounds", [{}])[0].get("mass", 0.0)
-            formula = bgc.get("compounds", [{}])[0].get("formula", "Unknown")
-
             taxonomy = bgc.get("taxonomy", {}).get("name", "Unknown")
+            compounds = bgc.get("compounds", [])
 
+            # Format the compound(s) data
+            compound_data = []
+            total_mass = 0.0
+            compound_graphs = []
+            for compound in compounds:
+                structure = compound.get("structure", "Unkonwn")
+                mass = compound.get("mass", 0.0)
+                formula = compound.get("formula", "Unkonw")
+                mol_graph = compound.get("mol_graph", None)
+
+                compound_data.append({
+                    "structure": structure,
+                    "mass": mass,
+                    "formula": formula,
+                    "mol_graph": mol_graph
+                })
+
+                total_mass += mass
+            average_mass = total_mass / len(compound_data) if compound_data else 0.0
+
+        
             # Add the node
             population_graph.add_node(
                 accession_number,
@@ -91,10 +108,9 @@ def make_population_graph(bgc_data):
                 scaled_fitness=0.0,
                 accession_number=accession_number,
                 biosynthesis_class=biosynthesis_class,
-                structure=structure,
-                mass=mass,
-                formula=formula,
-                taxonomy=taxonomy
+                taxonomy=taxonomy,
+                compounds=compound_data,
+                average_mass=average_mass
             )
             population_graph.add_edge(group_name, accession_number)
     return population_graph

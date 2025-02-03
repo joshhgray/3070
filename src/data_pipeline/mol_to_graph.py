@@ -1,6 +1,7 @@
 import networkx as nx
 from rdkit import Chem, RDLogger
 
+# Supress RDkit warnings
 RDLogger.DisableLog('rdApp.*')
 
 def is_valid_smiles(smiles_str):
