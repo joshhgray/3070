@@ -7,34 +7,34 @@ import psutil
 import uuid
 import time
 
-
 def start_ga():
+    """
+    Load population, Initialize and Run the Genetic Algorithm (GA) and
+    facilitate benchmarking and logging of metrics.
+    """
 
-    # Setup benchmarking tools
-    
-    # Generate run_id (primary key) with uuid4
+    # Generate primary key run ID
     run_id = str(uuid.uuid4())
     start_time = time.time()
     timestamp = datetime.datetime.now().isoformat()
-    '''
-    Start tracking CPU usage -
-    Measured as % of total available CPU from here
-    to end of GA execution
-    '''
+
+    # Start tracking CPU usage
     process = psutil.Process()
     process.cpu_percent(interval=None)
-    config = load_config
     
-    # Set up and run GA
-    # TODO - random sample the population pool to requested size
-    #rs_bgc_data = TODO
-    # initial_population = make_population_graph(rs_bgc_data, num_bgcs) TODO
+    # Load GA configuration
+    config = load_config()
+    
+    # Load population
+    print("Loading Population Graph...")
+    population_size = config["population_size"]
+    initial_population_graph = make_population_graph(population_size)
     
     
     print("Running GA...")
     final_population, diversity_log = run_ga(
-        #initial_population=initial_population, TODO
-        population_size=config["population_size"],
+        initial_population=initial_population_graph,
+        population_size=population_size,
         num_generations=config["num_generations"],
         mutation_rate=config["mutation_rate"],
         crossover_rate=config["crossover_rate"],
@@ -45,6 +45,7 @@ def start_ga():
         num_threads=config["num_threads"]
     )
     
+    # Collect fitness results
     # TODO - append other fitness results
     fitness_results = {'diversity': diversity_log}
     
@@ -56,6 +57,7 @@ def start_ga():
         cpu_usage = process.cpu_percent(interval=None)
         # TODO - implement continuous memory tracking
     
+    # Log results
     # TODO - fill rest of parameters
     print("Logging Metrics...")
     log_metrics(run_id,
@@ -71,7 +73,3 @@ def start_ga():
 
 #def stop_ga():
     # TODO - implement stopping feature
-
-
-    
-#start_ga()
