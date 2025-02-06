@@ -7,5 +7,5 @@ num_elite_groups: 1
 num_elite_individuals: 1
 num_generations: 5
 num_threads: 1
-population_size: 50
+population_size: 25
 selection_method: sus

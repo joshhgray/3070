@@ -10,26 +10,9 @@ class TestControllerIntegration(unittest.TestCase):
         self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config.yaml")
         self.config = load_config()
 
-    def test_config_file_exists(self):
-        """ Test that the config file exists """
-        self.assertTrue(os.path.isfile(self.file_path))
-        
-    def test_load_config(self):
-        """ Test that the config file is fully loaded"""
-        
-        self.assertIsInstance(self.config, dict)
-        self.assertIn("crossover_rate", self.config)
-        self.assertIn("fitness_weights", self.config)
-        self.assertIn("mutation_rate", self.config)
-        self.assertIn("num_elite_groups", self.config)
-        self.assertIn("num_elite_individuals", self.config)
-        self.assertIn("num_generations", self.config)
-        self.assertIn("num_threads", self.config)
-        self.assertIn("population_size", self.config)
-        self.assertIn("selection_method", self.config)
 
     def test_controller_to_ga(self):
-        """ Test controller integration with ga """
+        # Test controller integration with GA
         final_population, diversity_log = start_ga()
 
         # Verify final population

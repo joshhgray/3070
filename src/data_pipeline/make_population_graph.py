@@ -21,7 +21,6 @@ def make_population_graph(population_size):
     """
 
     sampled_bgcs = sample_bgcs(population_size)
-    print(sampled_bgcs)
 
     # Group BGCs by biosynthesis class
     # Default missing attributes to "Unknown"
@@ -81,7 +80,6 @@ def make_population_graph(population_size):
             # Format the compound(s) data
             compound_data = []
             total_mass = 0.0
-            compound_graphs = []
             for compound in compounds:
                 structure = compound.get("structure", "Unkonwn")
                 mass = compound.get("mass", 0.0)

@@ -71,5 +71,7 @@ def start_ga():
                 )
     print("Simulation complete.")
 
+    return final_population, diversity_log
+
 #def stop_ga():
     # TODO - implement stopping feature

@@ -1,6 +1,7 @@
 import random
 from src.evolutionary_system.fitness import calculate_qed, calculate_diversity
 from rdkit import Chem #type:ignore
+import uuid
 
 def mutate():
     pass
@@ -22,49 +23,52 @@ def run_ga(initial_population,
     diversity_log = []
     working_population = initial_population
 
+    #print("evaluating initial fitness")
     # Evaluate  Initial Fitness
     for node in working_population.nodes:
         if working_population.nodes[node]["level"] == "Individual":
-            smiles_str = working_population.nodes[node]['smiles_str']
             # this will eventually just take an all encompasing fitness function
-            # where all metrics are calculated at once
-            working_population.nodes[node]["qed"] = calculate_qed(smiles_str)
+            # where all metrics are calculated at once. maybe
+            compounds = working_population.nodes[node].get("compounds", [])
+            structure = compounds[0].get("mol_graph") if compounds else None
+            working_population.nodes[node]["qed"] = calculate_qed(structure)
             # will be calculated in fitness.py later - this is temporary
             working_population.nodes[node]['raw_fitness'] = working_population.nodes[node]["qed"]
 
+    #print("evaluating fitness")
     for generation in range(num_generations):
 
-        # Selection TODO - apply an proper selection technique
+        # Selection TODO - apply a proper selection technique
         # Currently just selected top half of population based on raw fitness
-        individuals = [node for node in working_population.nodes if working_population.nodes[node]["level"] == "Individual"]
-        sorted_individuals = sorted(individuals,
+        mols = [node for node in working_population.nodes if working_population.nodes[node]["level"] == "Individual"]
+        sorted_mols = sorted(mols,
                                     key=lambda x: working_population.nodes[x]["raw_fitness"], 
                                     reverse=True)
-        parents = sorted_individuals[: len(sorted_individuals) // 2]
+        parents = sorted_mols[: len(sorted_mols) // 2]
 
         # Crossover 
+        # TODO make a working crossover function
         new_population = [] 
         for i in range(0, len(parents) -1, 2): # 2 parents
-            p1 = working_population.nodes[parents[i]]["smiles_str"]
-            p2 = working_population.nodes[parents[i+1]]["smiles_str"]
-            child1, child2 = crossover(p1, p1)
+            p1 = working_population.nodes[parents[i]].get("compounds", [])
+            p2 = working_population.nodes[parents[i+1]].get("compounds", [])
+            # TODO - temporarily this takes both p1 an p1 effectively making it do nothing (since it's not implemented properly yet)
+            child1, child2 = p1, p2 #crossover(p1, p1)
             new_population.append(child1)
             new_population.append(child2)
 
         # Update graph (Build new population)
-        for i, individual in enumerate(new_population):
-            node_name = f"Individual_1_{i + 1}"
-            if node_name in working_population.nodes:
-                working_population.nodes[node_name]["smiles_str"] = individual
-                # TODO - same comments as initial fitness evaluation
-                working_population.nodes[node_name]["qed"] = calculate_qed(smiles_str)
-                working_population.nodes[node_name]['raw_fitness'] = working_population.nodes[node]["qed"]
+        for i, mol in enumerate(new_population):
+            new_id = f"evoMol_{uuid.uuid4().hex[:10]}"
+            working_population.add_node(new_id, level="Individual", compounds=[])
+            working_population.nodes[new_id]["comopounds"] = mol
+            working_population.nodes[new_id]["qed"] = calculate_qed(mol)
+            working_population.nodes[new_id]['raw_fitness'] = working_population.nodes[new_id]["qed"]
         
-        working_population.nodes[node]
         
         # Calculate population-wide diversity
         diversity = calculate_diversity(working_population)
         working_population.nodes["Population"]["diversity"] = diversity
         diversity_log.append(diversity)
-        
+    
     return working_population, diversity_log
