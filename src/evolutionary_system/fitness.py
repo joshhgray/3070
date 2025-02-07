@@ -4,8 +4,8 @@ from rdkit.Chem import QED, AllChem, rdFingerprintGenerator
 from rdkit.DataStructs import TanimotoSimilarity
 import numpy as np
 import networkx as nx
+from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 
-# refactor
 def calculate_qed(compound):
     """
     Calculate QED score of a given SMILES string
@@ -14,11 +14,7 @@ def calculate_qed(compound):
     :returns: QED score of the given structure
     """
     try:
-        print(f"getting structure: {mol}")
-        mol = compound.get("structure")
-        print(f"converting to mol: {mol}")
-        mol = Chem.MolFromSmiles(mol)
-        print(f"MOL: {mol}")
+        mol = nx_graph_to_mol(compound)
         if mol: # Valid compound
             return QED.qed(mol)
         else:
@@ -26,7 +22,7 @@ def calculate_qed(compound):
             return 0.0
 
     except Exception as e:
-        #print(f"Error calculating QED for {compound}: {e}")
+        print(f"Error calculating QED for {compound}: {e}")
         return 0.0
 
 

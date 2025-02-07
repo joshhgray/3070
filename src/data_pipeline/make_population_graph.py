@@ -111,6 +111,12 @@ def make_population_graph(population_size):
                 average_mass=average_mass
             )
             population_graph.add_edge(group_name, accession_number)
+    # si hay un error cuando haciendo el graph en el initial population
+    # for node in population_graph.nodes:
+    #     if population_graph.nodes[node]["level"] == "Individual":
+    #         for compound in population_graph.nodes[node]["compounds"]:
+    #             if "mol_graph" not in compound or compound["mol_graph"] is None:
+    #                 print(f"Missing mol_graph for {node}")
     return population_graph
 
 
