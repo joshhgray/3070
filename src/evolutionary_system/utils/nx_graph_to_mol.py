@@ -18,7 +18,7 @@ bond_type_map = {
     "AROMATIC": Chem.BondType.AROMATIC
 }
 
-def nx_graph_to_mol(G):
+def nx_graph_to_mol(G, return_rwmol=True):
     """
     Converts a NetworkX molecular graph to an RDKit Mol object
 
@@ -33,23 +33,23 @@ def nx_graph_to_mol(G):
         mol = Chem.RWMol()
         node_to_idx = {}
 
-        atomic_symbols = nx.get_node_attributes(G, 'element')
         atomic_nums = nx.get_node_attributes(G, 'atomic_num')
-        chiral_tags = nx.get_node_attributes(G, 'chiral_tag')
+        #chiral_tags = nx.get_node_attributes(G, 'chiral_tag') TODO - see below
         formal_charges = nx.get_node_attributes(G, 'formal_charge')
-        node_is_aromatics = nx.get_node_attributes(G, 'is_aromatic')
-        node_hybridizations = nx.get_node_attributes(G, 'hybridization')
+        is_aromatic = nx.get_node_attributes(G, 'is_aromatic')
+        hybridizations = nx.get_node_attributes(G, 'hybridization')
         num_explicit_hss = nx.get_node_attributes(G, 'num_explicit_hs')
 
         # Add atoms
         for node in G.nodes():
             try:
                 a=Chem.Atom(atomic_nums[node])
-                a.SetChiralTag(chiral_tags[node])
+                #a.SetChiralTag(chiral_tags[node]) - maybe causing errors TODO
                 a.SetFormalCharge(formal_charges[node])
-                a.SetIsAromatic(node_is_aromatics[node])
-                a.SetHybridization(node_hybridizations[node])
+                a.SetIsAromatic(is_aromatic[node])
+                a.SetHybridization(hybridizations[node])
                 a.SetNumExplicitHs(num_explicit_hss[node])
+
                 idx = mol.AddAtom(a)
                 node_to_idx[node] = idx
 
@@ -84,11 +84,9 @@ def nx_graph_to_mol(G):
         except Exception as e:
             print(f"Error sanitizing mol: {e}")
             return None
-        
 
-        return mol
+        return mol if return_rwmol else Chem.Mol(mol)
 
-    
     except Exception as e:
         print(f"Error converting nx_graph to rdkit mol: {e}")
         return None

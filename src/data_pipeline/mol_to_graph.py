@@ -68,6 +68,7 @@ def mol_to_graph(smiles_str):
                                num_explicit_hs=atom.GetNumExplicitHs(),
                                is_aromatic=atom.GetIsAromatic(),
                                )
+            
         # Extract Bonds
         for bond in mol.GetBonds():
             mol_graph.add_edge(

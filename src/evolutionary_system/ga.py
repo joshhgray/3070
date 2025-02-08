@@ -1,12 +1,8 @@
-from src.evolutionary_system.fitness import calculate_qed, calculate_diversity
-from rdkit import Chem #type:ignore
+from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
+from src.evolutionary_system.fitness_operations.calculate_population_diversity import calculate_population_diversity
+from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
+from rdkit import Chem
 import uuid
-
-def mutate():
-    pass
-
-def crossover():
-    pass
 
 def run_ga(initial_population, 
            population_size, 
@@ -17,7 +13,8 @@ def run_ga(initial_population,
            num_elite_groups,
            selection_method,
            fitness_weights,
-           num_threads):
+           num_threads,
+           selection_cutoff=50):
     
     diversity_log = []
     working_population = initial_population
@@ -41,17 +38,12 @@ def run_ga(initial_population,
         """
         SELECTION
         """
-        # TODO - apply a proper selection technique
-        # Currently just selected top half of population based on raw fitness
-        mols = [node for node in working_population.nodes if working_population.nodes[node]["level"] == "Individual"]
-        sorted_mols = sorted(mols,
-                                    key=lambda x: working_population.nodes[x]["raw_fitness"], 
-                                    reverse=True)
-        parents = sorted_mols[: len(sorted_mols) // 2]
+        parents = rank_based_selection(working_population, selection_cutoff)
 
         """
         CROSSOVER
         """
+
         # TODO make a working crossover function
         new_population = [] 
         for i in range(0, len(parents) -1, 2): # 2 parents
@@ -86,7 +78,7 @@ def run_ga(initial_population,
         CALCULATE DIVERSITY
         """
         # Calculate population-wide diversity
-        diversity = calculate_diversity(working_population)
+        diversity = calculate_population_diversity(working_population)
         working_population.nodes["Population"]["diversity"] = diversity
         diversity_log.append(diversity)
     

@@ -1,6 +1,6 @@
 import os
 import unittest
-import pytest #type:ignore
+import pytest
 import networkx as nx
 from src.controller import start_ga
 from src.evolutionary_system.utils.config_loader import load_config

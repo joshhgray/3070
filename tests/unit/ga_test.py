@@ -1,6 +1,6 @@
 import unittest
 from src.evolutionary_system.ga import run_ga
-
+# TODO - REFACTOR
 class TestFitness(unittest.TestCase):
     def setUp(self):
         # Random SMILES strings
