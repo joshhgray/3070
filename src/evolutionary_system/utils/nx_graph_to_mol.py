@@ -23,9 +23,11 @@ def nx_graph_to_mol(G, return_rwmol=True):
     Converts a NetworkX molecular graph to an RDKit Mol object
 
     :param nx_graph: NetworkX Graph object representing molecule
+    :param return_rwmol: If True return 
     :returns: RDKit Mol object representing the same molecule (None if conversion fails) 
     """
 
+    #print(f"G: {G}")
     if not isinstance(G, nx.Graph):
         print(f"Error converting nx.Graph to rdkit mol for {G}")
         return None

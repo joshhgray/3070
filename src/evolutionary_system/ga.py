@@ -1,6 +1,9 @@
 from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
 from src.evolutionary_system.fitness_operations.calculate_population_diversity import calculate_population_diversity
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
+from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
+from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
+from src.data_pipeline.mol_to_graph import mol_to_graph 
 from rdkit import Chem
 import uuid
 
@@ -25,8 +28,8 @@ def run_ga(initial_population,
             # this will eventually just take an all encompasing fitness function
             # where all metrics are calculated at once. maybe
             compounds = working_population.nodes[node].get("compounds", [])
-            structure = compounds[0].get("mol_graph") if compounds else None
-            working_population.nodes[node]["qed"] = calculate_qed(structure)
+            mol_graph = compounds[0].get("mol_graph") if compounds else None
+            working_population.nodes[node]["qed"] = calculate_qed(mol_graph)
             # will be calculated in fitness.py later - this is temporary
             working_population.nodes[node]['raw_fitness'] = working_population.nodes[node]["qed"]
 
@@ -36,44 +39,65 @@ def run_ga(initial_population,
     for generation in range(num_generations):
 
         """
-        SELECTION
+        SELECTION OPERATION LOGIC
         """
         parents = rank_based_selection(working_population, selection_cutoff)
 
         """
-        CROSSOVER
+        MUTATION OPERATION LOGIC
         """
+        for parent in parents:
+            # Extract mol graph from parent
+            # important to add backup logic bc it is easy to
+            # create invalid compounds throughout the genetic operations
+            compounds = working_population.nodes[parent].get("compounds", [])
+            mol_graph = compounds[0].get("mol_graph") if compounds else None
+            if mol_graph is None:
+                continue
+            # Convert mol to rw_mol with nx_graph_to_mol
+            rw_mol = nx_graph_to_mol(mol_graph, return_rwmol=True)
 
-        # TODO make a working crossover function
-        new_population = [] 
-        for i in range(0, len(parents) -1, 2): # 2 parents
-            # Extract parent's molecular graphs
-            p1 = working_population.nodes[parents[i]].get("compounds", [])
-            p2 = working_population.nodes[parents[i+1]].get("compounds", [])
-            p1_mol_graph = p1[0].get("mol_graph") if p1 else None
-            p2_mol_graph = p2[0].get("mol_graph") if p2 else None
+            # Apply hydroxylate mutation
+            mutated_mol = hydroxylate_mutate(rw_mol)
 
-            # TODO - This currently does nothing - just here to test integration
-            child1 = p1_mol_graph
-            child2 = p2_mol_graph
+            # TODO - add logic to add multiple/different mutation ops
 
-            new_population.append(child1)
-            new_population.append(child2)
+            # Continue on if mutation has failed
+            if mutated_mol == rw_mol or mutated_mol is None or mutated_mol.GetNumAtoms() == 0:
+                continue
+            
+            try:
+                Chem.SanitizeMol(mutated_mol)
+            except Exception as e:
+                print(f"Santization failed after mutation: {e}")
+                continue
 
-        """
-        UPDATE GRAPH - BUILD NEW POPULATION
-        """
-        for i, mol in enumerate(new_population):
-            new_id = f"evoMol_{uuid.uuid4().hex[:10]}"
+            # add successfully created offspring to offspring list
+            # Extract new SMILES string 
+            mutated_smiles = Chem.MolToSmiles(mutated_mol)
+            
+            # Convert back to nx.Graph
+            mutated_graph = mol_to_graph(mutated_smiles)
+
+            # Formulate and store offspring to be added to population
+            new_id = f"mutated_mol_{uuid.uuid4().hex[:10]}"
             working_population.add_node(new_id, level="Individual", compounds=[])
+            working_population.nodes[new_id]["compounds"] = [{"mol_graph": mutated_graph}]
+            working_population.nodes[new_id]["qed"] = calculate_qed(mutated_graph)
+            working_population.nodes[new_id]["raw_fitness"] = working_population.nodes[new_id]["qed"]
 
-            if mol is None:
-                print(f"no mol_graph for {new_id}")
-
-            working_population.nodes[new_id]["compounds"] = [{"mol_graph": mol}]
-            working_population.nodes[new_id]["qed"] = calculate_qed(mol)
-            working_population.nodes[new_id]['raw_fitness'] = working_population.nodes[new_id]["qed"]
+        """
+        CROSSOVER OPERATION LOGIC
+        """
         
+        """
+        TRUNCATE POPULATION 
+        """
+        while len(working_population.nodes) > population_size:
+            # Delete worst-performing individuals based, just based on raw fitness for now - TODO
+            worst_mol = min(working_population.nodes, key=lambda x: working_population.nodes[x].get('raw_fitness', float("inf")))
+            working_population.remove_node(worst_mol)
+
         """
         CALCULATE DIVERSITY
         """

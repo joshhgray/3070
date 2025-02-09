@@ -1,16 +1,17 @@
-import dash #type: ignore
-from dash import dcc, html, Input, Output, State #type: ignore
-from dash.dependencies import Input, Output#type: ignore
-import dash_bootstrap_components as dbc #type: ignore
-import pandas as pd #type: ignore
-import plotly.express as px #type: ignore
-import yaml # type: ignore
+import dash
+from dash import dcc, html, Input, Output, State
+from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
+import pandas as pd
+import plotly.express as px
+import yaml
 import os
 from threading import Thread
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga#, stop_ga
-import numpy as np # type: ignore
+import numpy as np
+import json
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.YETI])
 
@@ -139,17 +140,13 @@ app.layout = dbc.Container([
     ],
     State("current-config", "data")
 )
-def update_config(population_size, 
-                  num_generations, 
-                  mutation_rate, 
-                  crossover_rate, 
-                  num_elite_individuals, 
-                  num_elite_groups,
-                  selection_method,
-                  fitness_weight_a,
-                  fitness_weight_b,
-                  num_threads,
-                  current_config):
+def update_config(population_size, num_generations, mutation_rate, 
+                  crossover_rate, num_elite_individuals, num_elite_groups,
+                  selection_method, fitness_weight_a, fitness_weight_b,
+                  num_threads, current_config):
+    # Slider updates result in the config converting to a string
+    # So, it must be manually converted back to dict here
+    current_config = {}
     current_config["population_size"] = population_size
     current_config["num_generations"] = num_generations
     current_config["mutation_rate"] = mutation_rate
