@@ -3,24 +3,35 @@ from src.evolutionary_system.fitness_operations.calculate_population_diversity i
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
+from src.evolutionary_system.utils.ga_state import update_latest_diversity, update_latest_population, is_ga_active, set_ga_active
 from src.data_pipeline.mol_to_graph import mol_to_graph 
+import plotly.express as px
 from rdkit import Chem
+import pandas as pd
 import uuid
+import csv
+import os
+
+latest_diversity_log = []
+ga_active = False
 
 def run_ga(initial_population, 
            population_size, 
            num_generations, 
-           mutation_rate, 
-           crossover_rate, 
+           mutation_method, 
+           crossover_method, 
            num_elite_individuals,
            num_elite_groups,
            selection_method,
-           fitness_weights,
+           fitness_function,
            num_threads,
            selection_cutoff=50):
     
     diversity_log = []
     working_population = initial_population
+
+    cd = os.path.dirname(os.path.abspath(__file__))
+    diversity_log_path = os.path.join(cd, 'utils/diversity_log.csv')
 
     """EVALUATE INITIAL FITNESS"""
     for node in working_population.nodes:
@@ -29,19 +40,18 @@ def run_ga(initial_population,
             # where all metrics are calculated at once. maybe
             compounds = working_population.nodes[node].get("compounds", [])
             mol_graph = compounds[0].get("mol_graph") if compounds else None
-            working_population.nodes[node]["qed"] = calculate_qed(mol_graph)
+            working_population.nodes[node]["raw_fitness"] = fitness_function(mol_graph)
             # will be calculated in fitness.py later - this is temporary
-            working_population.nodes[node]['raw_fitness'] = working_population.nodes[node]["qed"]
 
     """
     GENERATIONAL LOOP
     """
     for generation in range(num_generations):
+        if not is_ga_active():
+            print(f"GA manually stopped.")
+            break
 
-        """
-        SELECTION OPERATION LOGIC
-        """
-        parents = rank_based_selection(working_population, selection_cutoff)
+        parents = selection_method(working_population, selection_cutoff, population_size)
 
         """
         MUTATION OPERATION LOGIC
@@ -54,11 +64,12 @@ def run_ga(initial_population,
             mol_graph = compounds[0].get("mol_graph") if compounds else None
             if mol_graph is None:
                 continue
+
             # Convert mol to rw_mol with nx_graph_to_mol
             rw_mol = nx_graph_to_mol(mol_graph, return_rwmol=True)
 
             # Apply hydroxylate mutation
-            mutated_mol = hydroxylate_mutate(rw_mol)
+            mutated_mol = mutation_method(rw_mol)
 
             # TODO - add logic to add multiple/different mutation ops
 
@@ -91,19 +102,30 @@ def run_ga(initial_population,
         """
         
         """
-        TRUNCATE POPULATION 
+        SELECTION OPERATION LOGIC
         """
-        while len(working_population.nodes) > population_size:
-            # Delete worst-performing individuals based, just based on raw fitness for now - TODO
-            worst_mol = min(working_population.nodes, key=lambda x: working_population.nodes[x].get('raw_fitness', float("inf")))
-            working_population.remove_node(worst_mol)
+        parents = selection_method(working_population, selection_cutoff, population_size)
 
         """
-        CALCULATE DIVERSITY
+        CALCULATE DIVERSITY & LOG METRICS
         """
+        # TODO - pick a better variable name
+        n=1 # I've made this a variable for now, I may add the ability for the user to change it - TODO
         # Calculate population-wide diversity
-        diversity = calculate_population_diversity(working_population)
-        working_population.nodes["Population"]["diversity"] = diversity
-        diversity_log.append(diversity)
+        if generation % n == 0:
+            diversity = calculate_population_diversity(working_population)
+            working_population.nodes["Population"]["diversity"] = diversity
+            diversity_log.append(diversity)
+
+            with open(diversity_log_path, "a") as f:
+                writer = csv.writer(f)
+                writer.writerow((generation, diversity))
+
+            
+        # Save the latest population and diversity score log in global state
+        update_latest_population(working_population)
+        update_latest_diversity(diversity_log)
     
+    # Update GA state upon completion of Generational Loops
+    set_ga_active(False)
     return working_population, diversity_log

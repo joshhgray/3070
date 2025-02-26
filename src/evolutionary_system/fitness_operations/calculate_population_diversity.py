@@ -5,12 +5,13 @@ import numpy as np
 import networkx as nx
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 
-def calculate_population_diversity(population):
+def calculate_population_diversity(population, sample_size=50):
     """
     Calculate population-level diversity (across each compound) based on 
     molecular graph representations of each compound within every BGC
     
     :param population: NetworkX DiGraph representing and holidng the entire population
+    :param sampel_size: size of sample to pull for estimating population diversity.
     :return: Diversity score
     """
 

@@ -6,17 +6,18 @@ import pandas as pd
 import plotly.express as px
 import yaml
 import os
-from threading import Thread
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from .controller import start_ga#, stop_ga
-import numpy as np
-import json
+from .controller import start_ga
+from src.evolutionary_system.utils.ga_state import set_ga_active, is_ga_active, get_latest_diversity, get_latest_population
+from threading import Thread
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.YETI])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
 config_path = os.path.abspath("config.yaml")
+last_diversity_fig = None
 
+# TODO - move functions to utils?
 def load_hyperparameters():
     with open(config_path, "r") as file:
         return yaml.safe_load(file)
@@ -28,192 +29,300 @@ def save_hyperparameters(hyperparameters):
 def load_diversity_log(file_path="src/evolutionary_system/utils/metrics_log.csv"):
     try:
         data = pd.read_csv(file_path)
-        fitness_results = data["fitness_results"].iloc[-1]
-        fitness_results = eval(fitness_results) 
-        diversity_log = fitness_results.get("diversity", [])
-        return [float(value) for value in diversity_log]
-    except (FileNotFoundError, KeyError, SyntaxError) as e:
+        return list(data["diversity_score"])
+    except Exception as e:
         print(f"Error loading diversity log: {e}")
         return []
-    
+
 config = load_hyperparameters()
 
+# Header
+header = dbc.Row(
+    dbc.Col(html.H1("Genetic Algorithm Dashboard"), width={"size": 6}),
+    className="mb-4"
+)
+
+# General Configuration Panel
+general_config_panel = dbc.Card([
+    dbc.CardHeader("General Configuration"),
+    dbc.CardBody([
+        dbc.Row([
+            dbc.Col([
+                dbc.Label("Population Size"),
+                # Max population set to 2000 currently due to size of data present
+                dcc.Input(id="pop-size", type="number", value=100,
+                    min=10, max=2000, style={
+                        "width": "110px",
+                        "textAlign": "center",
+                        "borderRadius": "8px",
+                        "border": "1px solid #ccc",
+                        "appearance": "textfield",
+                        "padding": "5px"
+                    }
+                )
+            ]),
+            dbc.Col([
+                dbc.Label("Generations"),
+                # Artificial cap of 9000 generations - this should be bypassable in advanced settings
+                dcc.Input(id="num-gen", type="number", value=50,
+                    min=1, max=9000, style={
+                        "width": "110px",
+                        "textAlign": "center",
+                        "borderRadius": "8px",
+                        "border": "1px solid #ccc",
+                        "appearance": "textfield",
+                        "padding": "5px"
+                    }
+                )
+            ])
+        ])
+    ])
+], className="mb-3")
+
+# Genetic Algorithm Operators Panel
+ga_operators_panel = dbc.Card([
+    dbc.CardHeader("Genetic Algorithm Operators"),
+    dbc.CardBody([
+        html.Div([
+            dbc.Label("Selection Method"),
+            dcc.Dropdown(
+                id="selection-method",
+                options=[
+                    {"label": "Verhulst", "value": "verhulst"},
+                    {"label": "Ranked", "value": "ranked"}
+                ],
+                value="ranked"
+            )
+        ], className="mb-3"),
+        html.Div([
+            dbc.Label("Mutation Method"),
+            dcc.Dropdown(
+                id="mutation-method",
+                options=[
+                    {"label": "Hydroxylate", "value": "hydroxylate"},
+                    {"label": "Bit Flip", "value": "bitflip"}
+                ],
+                value="hydroxylate"
+            )
+        ], className="mb-3"),
+        html.Div([
+            dbc.Label("Crossover Method"),
+            dcc.Dropdown(
+                id="crossover-method",
+                options=[
+                    {"label": "One-Point", "value": "onepoint"},
+                    {"label": "Two-Point", "value": "twopoint"}
+                ],
+                value="onepoint"
+            )
+        ], className="mb-3"),
+        html.Div([
+            dbc.Label("Fitness Function"),
+            dcc.Dropdown(
+                id="fitness-function",
+                options=[
+                    {"label": "QED", "value": "qed"},
+                    {"label": "Ro5", "value": "rule_of_five"}
+                ],
+                value="qed"
+            )
+        ], className="mb-3")
+    ])
+], className="mb-3")
+
+# Control Buttons Panel
+control_buttons_panel = dbc.Card([
+    dbc.CardHeader("GA Control"),
+    dbc.CardBody([
+        dbc.Button("Start GA", id="start-btn", color="success", className="mb-2", size="lg"),
+        dbc.Button("Stop GA", id="stop-btn", color="danger", className="mb-2", size="lg"),
+        dbc.Button("Evaluate Current Population", id="evaluate-btn", color="primary", className="mb-2", size="md")
+    ])
+], className="mb-3")
+
+# Live Tracking Panel (right side)
+live_tracking_panel = dbc.Card(
+    dbc.CardBody([
+        html.H3("Live Tracking"),
+        dcc.Graph(id="diversity-graph")
+    ]),
+    className="mb-3"
+)
+
+# Results Panel
+results_panel = dbc.Card([
+    dbc.CardHeader("Top 10 Compounds"),
+    dbc.CardBody(id="results-panel-body", children=[
+        html.P("Standings will be updated here.")
+    ])
+], className="mb-3")
+
 app.layout = dbc.Container([
-    dbc.Row(
-        dbc.Col(html.H1("GA Dashboard"), width={"size": 4, "offset": 3}),
-        className="mb-4"
+    # Store current config as default
+    dcc.Store(id="current-config", data=load_hyperparameters()),
+    dcc.Store(id="ga-running", data=False),
+    # Interval to update live tracking every 1 second also used for checking ga status
+    dcc.Interval(
+        id="interval-component",
+        interval=1000,
+        n_intervals=0
     ),
+    header,
     dbc.Row([
-        # Config
+        # Left column for configuration panels
         dbc.Col([
-            html.H2("Configuration"),
-                # Hyperparameters Adjustment Section
-                dbc.Card([
-                    dbc.CardHeader("Hyperparameters"),
-                    dbc.CardBody([
-                        # Population Size Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Population Size", html_for="population-size-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="population-size-slider", min=50, max=800, step=50, value=config.get("population_size")), width=6),
-                        ]),
-                        # Number of Generations Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Number of Generations", html_for="num-generations-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="num-generations-slider", min=5, max=500, step=50, value=config.get("num_generations")), width=6),
-                        ]),
-                        # Mutation Rate Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Mutation Rate", html_for="mutation-rate-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="mutation-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("mutation_rate")), width=6),
-                        ]),
-                        # Crossover Rate Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Crossover Rate", html_for="crossover-rate-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="crossover-rate-slider", min=0.1, max=1.0, step=0.1, value=config.get("crossover_rate")), width=6),
-                        ], className="conf"),
-                        # Number of Elite Individuals Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Number of Elites (Individuals)", html_for="num-elite-individuals-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="num-elite-individuals-slider", min=1, max=10, step=1, value=config.get("num_elite_individuals")), width=6),
-                        ]),
-                        # Number of Elite Groups Slider
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Number of Elites (Groups)", html_for="num-elite-groups-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="num-elite-groups-slider", min=1, max=5, step=1, value=config.get("num_elite_groups")), width=6),
-                        ]),
-                        # Number of Threads Slider
-                        # TODO - adjust when implementing Multi-threading
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Number of Threads", html_for="num-threads-slider"), width=2),
-                            dbc.Col(dcc.Slider(id="num-threads-slider", min=1, max=1, step=1, value=1), width=6),
-                        ]),
-                        # Selection Method Dropdown Menu
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Selection Method", html_for='selection-method-dropdown'), width=2),
-                            dbc.Col(dcc.Dropdown(id='selection-method-dropdown', options=[{"label": "Stochastic Universal Sampling", "value": "sus"}], value="sus", clearable=False))
-                        ]),
-                        # Fitness Weight Selection
-                        dbc.Row([
-                            dbc.Col(dbc.Label("Fitness Weights")),
-                            dbc.Col(dbc.Label("Scaling Factor A", html_for='fitness-weight-a'), width=1),
-                            dbc.Col(dcc.Input(id="fitness-weight-a", type="number", value=1.0, step=0.1)),
-                            dbc.Col(dbc.Label("Scaling Factor B", html_for='fitness-weight-b'), width=1),
-                            dbc.Col(dcc.Input(id="fitness-weight-b", type="number", value=1.0, step=0.1)),
-
-                        ]),
-                        
-                    ]),
-                ]),
-                dbc.Button("Start GA", id="start-ga-button", color="primary"),
-                dbc.Button("Stop GA", id="stop-ga-button", color="primary"),
-                dcc.Store(id="current-config", data=config),
-                dcc.Store(id="ga-running", data=False),
-                dbc.Badge(id="ga-status"), 
-
-                # Visualizations Sections
-                dbc.Col([                     
-                    html.H2("Visualizations"),
-                    dbc.Button("Update Results", id="update-results-button"),
-                    dbc.Card([
-                        dbc.CardHeader("Population Level Diversity by Generation"),
-                        dbc.CardBody(dcc.Graph(id="diversity-graph")),
-                    ]),
-                ], width=8),
-        ]),
-])
-], fluid=True),
-
+            general_config_panel,
+            ga_operators_panel,
+            control_buttons_panel
+        ], width=2),
+        # Middle column, live tracking
+        dbc.Col(live_tracking_panel, width=7),
+        # right side column, results and standings
+        dbc.Col(results_panel, width=3)
+    ])
+], fluid=True)
 
 @app.callback(
     Output("current-config", "data"),
     [
-        Input("population-size-slider", "value"),
-        Input("num-generations-slider", "value"),
-        Input("mutation-rate-slider", "value"),
-        Input("crossover-rate-slider", "value"),
-        Input("num-elite-individuals-slider", "value"),
-        Input("num-elite-groups-slider", "value"),
-        Input("selection-method-dropdown", "value"),
-        Input("fitness-weight-a", "value"),
-        Input("fitness-weight-b", "value"),
-        Input("num-threads-slider", "value")
+        Input("pop-size", "value"),
+        Input("num-gen", "value"),
+        Input("selection-method", "value"),
+        Input("mutation-method", "value"),
+        Input("crossover-method", "value"),
+        Input("fitness-function", "value"),
     ],
     State("current-config", "data")
 )
-def update_config(population_size, num_generations, mutation_rate, 
-                  crossover_rate, num_elite_individuals, num_elite_groups,
-                  selection_method, fitness_weight_a, fitness_weight_b,
-                  num_threads, current_config):
+def update_config(population_size, num_generations, selection_method,
+                  mutation_method, crossover_method, fitness_function,
+                  current_config):
     # Slider updates result in the config converting to a string
     # So, it must be manually converted back to dict here
     current_config = {}
     current_config["population_size"] = population_size
     current_config["num_generations"] = num_generations
-    current_config["mutation_rate"] = mutation_rate
-    current_config["crossover_rate"] = crossover_rate
-    current_config["num_elite_individuals"] = num_elite_individuals
-    current_config["num_elite_groups"] = num_elite_groups
     current_config["selection_method"] = selection_method
-    current_config["fitness_weights"] = [fitness_weight_a, fitness_weight_b]
-    current_config["num_threads"] = num_threads
+    current_config["mutation_method"] = mutation_method
+    current_config["crossover_method"] = crossover_method
+    current_config["fitness_function"] = fitness_function
+
+
 
     save_hyperparameters(current_config)
     return "Configuration Updated."
 
-
 @app.callback(
-    [Output("ga-status", "children", allow_duplicate=True),
-     Output("ga-running", "data", allow_duplicate=True)],
-     Input("start-ga-button", "n_clicks"),
+    Output("ga-running", "data", allow_duplicate=True),
+     Input("start-btn", "n_clicks"),
      State("ga-running", "data"),
-     # Initial call prevention required for duplicate outputs
+     # Initial call prevention required for duplicate outputs 
      prevent_initial_call=True
 )
 def start_ga_callback(n_clicks, is_running):
-    if n_clicks and n_clicks > 0:
+    if n_clicks:
         if not is_running:
+            set_ga_active(True)
             # open new thread to run the GA
             thread = Thread(target=start_ga)
             thread.start()
-            return "GA Started...", is_running
-        return "GA already running.", is_running
-    return "Click 'Start GA'.", is_running
+            return True
+        return True
+    return False
 
-# TODO - Uncomment once fully implemented in backend
 @app.callback(
-    [Output("ga-status", "children", allow_duplicate=True),
-     Output("ga-running", "data", allow_duplicate=True)],
-     Input("stop-ga-button", "n_clicks"),
+    Output("ga-running", "data", allow_duplicate=True),
+     Input("stop-btn", "n_clicks"),
      State("ga-running", "data"),
      # Initial call prevention required for duplicate outputs
      prevent_initial_call=True,
 )
 def stop_ga_callback(n_clicks, is_running):
-    if n_clicks and n_clicks > 0:
-        return "", is_running
-    return "", is_running
-
+    if n_clicks and is_running:
+        set_ga_active(False)
+        return False
+    return is_running
 
 @app.callback(
-        Output("diversity-graph", "figure"),
-        Input("update-results-button", "n_clicks")
+        Output("diversity-graph", "figure", allow_duplicate=True),
+        Input("interval-component", "n_intervals"),
+        State("ga-running", "data"),
+        # Required for duplicate outputs
+        prevent_initial_call=True
 )
-def update_diversity_graph(n_clicks):
-    if n_clicks and n_clicks > 0:
-        diversity_log = load_diversity_log()
-        generations = list(range(1, len(diversity_log) + 1))
-        fig = px.line(
+def update_diversity_graph(n_intervals, is_running):
+    global last_diversity_fig
+
+    # Displays empty graph when GA hasn't been run, or displays last frame when GA is stopped
+    if not is_ga_active():
+        return last_diversity_fig if last_diversity_fig else px.line(title="Population Diversity")
+    
+    diversity_log = get_latest_diversity()
+
+    # Prevent update if there is no log yet, or display most recent figure
+    if not diversity_log:
+        print("dash_app: No diversity score log found.")
+        return last_diversity_fig if last_diversity_fig else dash.no_update
+    
+    scores = diversity_log
+    generations = list(range(1, len(diversity_log) + 1))
+    last_diversity_fig = px.line(
             x=generations,
-            y=diversity_log,
+            y=scores,
             labels={"x": "Generation", "y": "Diversity"},
             title="Diversity by Generation"
-        )
-        return fig
-    return px.line(
-        labels={"x": "Generation", "y": "Diversity"},
-        title="Diversity by Generation"
     )
+    return last_diversity_fig
 
+@app.callback(
+    Output("results-panel-body", "children"),
+    Input("evaluate-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def update_standings(n_clicks):
+    if n_clicks:
+        try:
+            population = get_latest_population()
+
+            # Extract relevant information from population graph to list
+            population_list = [
+                (node, float(population.nodes[node].get("raw_fitness") or 0))
+                for node in population.nodes
+                if population.nodes[node]["level"] == "Individual"
+            ]
+
+            # Sort by fitness descending, extract top 10
+            top_10_candidates = sorted(population_list, key=lambda x: x[1], reverse=True)[:10]
+
+            standings = [
+                html.P(f"{idx+1}. Fitness: {fitness:.4f}")
+                for idx, (node, fitness) in enumerate(top_10_candidates)
+            ]
+
+            return standings
+
+        except Exception as e:
+            print(f"Error Loading Standings: {e}")
+            return [html.P(f"Error Loading Standings")]
+    return [html.P("Click 'Evaluate Current Population' to view standings")]
+
+@app.callback(
+    Output("ga-running", "data"),
+    Input("interval-component", "n_intervals"),
+    Input("ga-running", "data")
+)
+def update_ga_status(n_intervals, current_status):
+    """
+    Continuous polling of GA status to ensure synchronization with global state of GA 
+    
+    :param n_intervals: 1 second interval, this function will run every 1 second.
+    :param current_status: Local status 
+    """
+    ga_status = is_ga_active()
+
+    if ga_status != current_status:
+        return ga_status
+    return current_status
 
 if __name__ == "__main__":
     app.run_server(debug=True)

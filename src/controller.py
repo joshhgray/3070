@@ -1,3 +1,8 @@
+from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
+from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
+from src.evolutionary_system.selection_operations.verhulst_based_selection import verhulst_based_selection
+from src.evolutionary_system.selection_operations.stochastic_universal_sampling import stochastic_universal_sampling
+from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
 from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
@@ -24,6 +29,34 @@ def start_ga():
     
     # Load GA configuration
     config = load_config()
+
+    # Mutation options mapped
+    mutation_method_map = {
+        "hydroxylate": hydroxylate_mutate
+        # TODO - add/study more
+    }
+
+    # TODO Crossover options mapped
+    # crossover_method_map = {}
+
+    # Selection options mapped
+    selection_method_map = {
+        "verhulst": verhulst_based_selection,
+        "ranked": rank_based_selection,
+        # TODO - Add more
+    }
+
+    # Fitness options mapped
+    fitness_function_map = {
+        "qed": calculate_qed,
+    }
+    print(config)
+    # Assign user selected methods and functions
+    mutation_method = mutation_method_map[config["mutation_method"]]
+    #crossover_method = crossover_method_map[config["crossover_method"]] TODO
+    selection_method = selection_method_map[config["selection_method"]]
+    fitness_function = fitness_function_map[config["fitness_function"]]
+
     
     # Load population
     print("Loading Population Graph...")
@@ -36,13 +69,13 @@ def start_ga():
         initial_population=initial_population_graph,
         population_size=population_size,
         num_generations=config["num_generations"],
-        mutation_rate=config["mutation_rate"],
-        crossover_rate=config["crossover_rate"],
-        num_elite_individuals=config["num_elite_individuals"],
-        num_elite_groups=config["num_elite_groups"],
-        selection_method=config["selection_method"],
-        fitness_weights=config["fitness_weights"],
-        num_threads=config["num_threads"]
+        mutation_method=mutation_method,
+        crossover_method=None, # TODO
+        num_elite_individuals=None, # TODO - backlog
+        num_elite_groups=None, # TODO - backlog
+        selection_method=selection_method,
+        fitness_function=fitness_function,
+        num_threads=None, # TODO - backlog
     )
     
     # Collect fitness results
@@ -72,6 +105,3 @@ def start_ga():
     print("Simulation complete.")
 
     return final_population, diversity_log
-
-#def stop_ga():
-    # TODO - implement stopping feature

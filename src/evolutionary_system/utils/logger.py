@@ -23,12 +23,12 @@ def log_metrics(run_id,
         # Write out hyperparameters from config
         "population_size": hyperparameters["population_size"],
         "num_generations": hyperparameters["num_generations"],
-        "mutation_rate": hyperparameters["mutation_rate"],
-        "crossover_rate": hyperparameters["crossover_rate"],
-        "num_elite_individuals": hyperparameters["num_elite_individuals"],
-        "num_elite_groups": hyperparameters["num_elite_groups"],
-        "fitness_weights": hyperparameters["fitness_weights"],
-        "num_threads": hyperparameters["num_threads"],
+        "mutation_method": hyperparameters["mutation_method"],
+        "crossover_method": hyperparameters["crossover_method"],
+        #"num_elite_individuals": hyperparameters["num_elite_individuals"],
+        #"num_elite_groups": hyperparameters["num_elite_groups"],
+        "fitness_function": hyperparameters["fitness_function"],
+        #"num_threads": hyperparameters["num_threads"],
         
         # Write out fitness and validation results
         "fitness_results": fitness_results,

@@ -23,6 +23,8 @@ class TestControllerIntegration(unittest.TestCase):
         # Verify diversity log
         self.assertEqual(len(diversity_log), self.config["num_generations"])
 
+        # Verify operation selections (selection, mutation, crossover, fitness) are all set properly 
+
         # Verify assignment of mol_graph to each new compound
         for node in final_population.nodes:
             if final_population.nodes[node]["level"] == "Individual":

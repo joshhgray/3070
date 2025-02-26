@@ -1,11 +1,6 @@
-crossover_rate: 0.1
-fitness_weights:
-- 1
-- 1
-mutation_rate: 0.1
-num_elite_groups: 1
-num_elite_individuals: 1
-num_generations: 100
-num_threads: 1
+crossover_method: onepoint
+fitness_function: qed
+mutation_method: hydroxylate
+num_generations: 50
 population_size: 100
-selection_method: sus
+selection_method: ranked
