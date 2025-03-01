@@ -1,6 +1,8 @@
 crossover_method: onepoint
 fitness_function: qed
-mutation_method: hydroxylate
-num_generations: 50
-population_size: 100
+mutation_methods:
+- hydroxylate
+- atomic_substitution
+num_generations: 1000
+population_size: 1000
 selection_method: ranked

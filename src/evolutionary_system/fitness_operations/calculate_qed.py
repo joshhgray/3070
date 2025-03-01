@@ -15,9 +15,9 @@ def calculate_qed(compound):
         if mol: # Valid compound
             return QED.qed(mol)
         else:
-            print(f"Invalid compound: {compound}.")
+            #print(f"Invalid compound: {compound}.")
             return 0.0
 
     except Exception as e:
-        print(f"Error calculating QED for {compound}: {e}")
+        #print(f"Error calculating QED for {compound}: {e}")
         return 0.0

@@ -27,9 +27,8 @@ def nx_graph_to_mol(G, return_rwmol=True):
     :returns: RDKit Mol object representing the same molecule (None if conversion fails) 
     """
 
-    #print(f"G: {G}")
     if not isinstance(G, nx.Graph):
-        print(f"Error converting nx.Graph to rdkit mol for {G}")
+        #print(f"Error converting nx.Graph to rdkit mol for {G}")
         return None
     try:
         mol = Chem.RWMol()

@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State
+from dash import dcc, html, Input, Output, State, dash_table
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -10,14 +10,23 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga
 from src.evolutionary_system.utils.ga_state import set_ga_active, is_ga_active, get_latest_diversity, get_latest_population
+from src.molecular_validation.molecular_evaluation import evaluate_mols
+from src.evolutionary_system.utils.ga_state import get_latest_population
+from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 from threading import Thread
+from rdkit import Chem
+from rdkit.Chem import Draw
+from io import BytesIO
+import base64
+from src.data_pipeline.mol_to_graph import mol_to_graph
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY], suppress_callback_exceptions=True)
 
 config_path = os.path.abspath("config.yaml")
 last_diversity_fig = None
 
-# TODO - move functions to utils?
+# TODO - move functions to utils? idk
 def load_hyperparameters():
     with open(config_path, "r") as file:
         return yaml.safe_load(file)
@@ -50,7 +59,7 @@ general_config_panel = dbc.Card([
             dbc.Col([
                 dbc.Label("Population Size"),
                 # Max population set to 2000 currently due to size of data present
-                dcc.Input(id="pop-size", type="number", value=100,
+                dcc.Input(id="pop-size", type="number", value=1000,
                     min=10, max=2000, style={
                         "width": "110px",
                         "textAlign": "center",
@@ -64,7 +73,7 @@ general_config_panel = dbc.Card([
             dbc.Col([
                 dbc.Label("Generations"),
                 # Artificial cap of 9000 generations - this should be bypassable in advanced settings
-                dcc.Input(id="num-gen", type="number", value=50,
+                dcc.Input(id="num-gen", type="number", value=1000,
                     min=1, max=9000, style={
                         "width": "110px",
                         "textAlign": "center",
@@ -97,12 +106,13 @@ ga_operators_panel = dbc.Card([
         html.Div([
             dbc.Label("Mutation Method"),
             dcc.Dropdown(
-                id="mutation-method",
+                id="mutation-methods",
                 options=[
                     {"label": "Hydroxylate", "value": "hydroxylate"},
-                    {"label": "Bit Flip", "value": "bitflip"}
+                    {"label": "Atomic Substitution", "value": "atomic_substitution"}
                 ],
-                value="hydroxylate"
+                value=["hydroxylate", "atomic_substitution"],
+                multi=True
             )
         ], className="mb-3"),
         html.Div([
@@ -141,11 +151,17 @@ control_buttons_panel = dbc.Card([
 ], className="mb-3")
 
 # Live Tracking Panel (right side)
-live_tracking_panel = dbc.Card(
+live_tracking_panel = dbc.Card([
+    dbc.CardHeader("Live Tracking"),
     dbc.CardBody([
-        html.H3("Live Tracking"),
-        dcc.Graph(id="diversity-graph")
+        dbc.Row([
+            dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            dbc.Col(dcc.Graph(id="graph-2", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            dbc.Col(dcc.Graph(id="graph-3", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            dbc.Col(dcc.Graph(id="graph-4", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3)
+        ])
     ]),
+    ],
     className="mb-3"
 )
 
@@ -157,7 +173,16 @@ results_panel = dbc.Card([
     ])
 ], className="mb-3")
 
+molecule_image_section = dbc.Card([
+    dbc.CardHeader("Molecular Structure"),
+    dbc.CardBody([
+        html.Img(id="molecule-image", style={"width": "300px", "height": "300px"}),
+        html.P(id="molecule-name")
+    ])
+], className="mb-3")
+
 app.layout = dbc.Container([
+    dcc.Store(id="molecule-list"),
     # Store current config as default
     dcc.Store(id="current-config", data=load_hyperparameters()),
     dcc.Store(id="ga-running", data=False),
@@ -175,10 +200,13 @@ app.layout = dbc.Container([
             ga_operators_panel,
             control_buttons_panel
         ], width=2),
-        # Middle column, live tracking
-        dbc.Col(live_tracking_panel, width=7),
-        # right side column, results and standings
-        dbc.Col(results_panel, width=3)
+        dbc.Col([
+            dbc.Row(dbc.Col(live_tracking_panel), className="mb-3"),
+            dbc.Row([
+                dbc.Col(results_panel, width=7),
+                dbc.Col(molecule_image_section, width=3)
+            ])
+        ], width=10)
     ])
 ], fluid=True)
 
@@ -188,14 +216,14 @@ app.layout = dbc.Container([
         Input("pop-size", "value"),
         Input("num-gen", "value"),
         Input("selection-method", "value"),
-        Input("mutation-method", "value"),
+        Input("mutation-methods", "value"),
         Input("crossover-method", "value"),
         Input("fitness-function", "value"),
     ],
     State("current-config", "data")
 )
 def update_config(population_size, num_generations, selection_method,
-                  mutation_method, crossover_method, fitness_function,
+                  mutation_methods, crossover_method, fitness_function,
                   current_config):
     # Slider updates result in the config converting to a string
     # So, it must be manually converted back to dict here
@@ -203,11 +231,9 @@ def update_config(population_size, num_generations, selection_method,
     current_config["population_size"] = population_size
     current_config["num_generations"] = num_generations
     current_config["selection_method"] = selection_method
-    current_config["mutation_method"] = mutation_method
+    current_config["mutation_methods"] = mutation_methods
     current_config["crossover_method"] = crossover_method
     current_config["fitness_function"] = fitness_function
-
-
 
     save_hyperparameters(current_config)
     return "Configuration Updated."
@@ -251,6 +277,7 @@ def stop_ga_callback(n_clicks, is_running):
         prevent_initial_call=True
 )
 def update_diversity_graph(n_intervals, is_running):
+    # TODO - figure out how to hide default graph from 
     global last_diversity_fig
 
     # Displays empty graph when GA hasn't been run, or displays last frame when GA is stopped
@@ -269,13 +296,54 @@ def update_diversity_graph(n_intervals, is_running):
     last_diversity_fig = px.line(
             x=generations,
             y=scores,
-            labels={"x": "Generation", "y": "Diversity"},
-            title="Diversity by Generation"
+            labels={"x": "", "y": ""}
+    )
+
+    # Remove margins and disable tick labels
+    last_diversity_fig.update_layout(
+        autosize=True,
+        margin=dict(l=0,r=0,t=0,b=0,pad=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
+
+    last_diversity_fig.update_layout(
+        annotations=[
+            dict(
+                text="Population Diversity",
+                x=0.5,
+                y=0.5,
+                xref="paper",
+                yref="paper",
+                font=dict(size=30, color="rgba(255,255,255,0.2)"),
+                showarrow=False
+            ),
+            
+        ],
+        #autosize=True,
+    )
+    last_diversity_fig.update_xaxes(
+        showticklabels=False,
+        ticks="",
+        fixedrange=True,  # Prevents zooming
+        showgrid=False,
+        zeroline=False,
+    )
+    last_diversity_fig.update_yaxes(
+        showticklabels=True,
+        ticks="outside",
+        tickvals=[0.0,0.5,1.0],
+        tickfont=dict(size=12),
+        range=[0,1],
+        fixedrange=True,
+        showgrid=False,
+        zeroline=False,
     )
     return last_diversity_fig
 
 @app.callback(
     Output("results-panel-body", "children"),
+    Output("molecule-list", "data"),
     Input("evaluate-btn", "n_clicks"),
     prevent_initial_call=True
 )
@@ -283,28 +351,32 @@ def update_standings(n_clicks):
     if n_clicks:
         try:
             population = get_latest_population()
+            # TODO - find a reference set (CheMBL)
+            reference_set = None
+            df = evaluate_mols(population, top_n=10, reference_set=reference_set)
+            mol_list = df.to_dict("records")
 
-            # Extract relevant information from population graph to list
-            population_list = [
-                (node, float(population.nodes[node].get("raw_fitness") or 0))
-                for node in population.nodes
-                if population.nodes[node]["level"] == "Individual"
-            ]
-
-            # Sort by fitness descending, extract top 10
-            top_10_candidates = sorted(population_list, key=lambda x: x[1], reverse=True)[:10]
-
-            standings = [
-                html.P(f"{idx+1}. Fitness: {fitness:.4f}")
-                for idx, (node, fitness) in enumerate(top_10_candidates)
-            ]
-
-            return standings
-
+            if df is not None:
+                return [
+                    dash_table.DataTable(
+                        id="evaluation-table",
+                        columns=[{"name": col, "id": col} for col in df.columns],
+                        data=mol_list,
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "center", "color": "white", "backgroundColor": "#2a2a2a", "padding": "5px"},
+                        style_header={"backgroundColor": "#1f1f1f", "fontWeight": "bold", "color": "white"},
+                        sort_action="native",
+                        row_selectable="single",
+                        page_size=10
+                    )
+                ], mol_list
+            else:
+                return [html.P("Error evaluating molecule.")], None
+            
         except Exception as e:
             print(f"Error Loading Standings: {e}")
-            return [html.P(f"Error Loading Standings")]
-    return [html.P("Click 'Evaluate Current Population' to view standings")]
+            return [html.P(f"Error Loading Standings")], None
+    return [html.P("Click 'Evaluate Current Population' to view standings")], None
 
 @app.callback(
     Output("ga-running", "data"),
@@ -324,5 +396,43 @@ def update_ga_status(n_intervals, current_status):
         return ga_status
     return current_status
 
+@app.callback(
+    Output("molecule-image", "src"),
+    Output("molecule-name", "children"),
+    Input("evaluation-table", "selected_rows"),
+    State("molecule-list", "data"),
+    prevent_initial_call=True
+)
+def update_molecule_image(selected_rows, mol_list):
+    if not selected_rows or mol_list is None:
+        return dash.no_update, dash.no_update
+
+    try:
+        selected_index = selected_rows[0]
+        selected_mol = mol_list[selected_index]
+        smiles = selected_mol.get("SMILES")
+
+        if not smiles:
+            return dash.no_update, selected_mol.get("Molecule", "Error Loading Compound Image")
+
+        mol_graph = mol_to_graph(smiles)
+        mol = nx_graph_to_mol(mol_graph)
+
+        if not mol:
+            return dash.no_update, selected_mol.get("Molecule", "Error Loading Compound Image")
+        
+        # open buffer and store image
+        img = Draw.MolToImage(mol, size=(300, 300))
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        # Bytes -> B64 -> UTF-8
+        encoded_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        return f"data:image/png;base64, {encoded_image}", selected_mol.get("Molecule", "Error Loading Compound Image")
+        
+    except Exception as e:
+        print(f"Error updating Molecular Image: {e}")
+        return dash.no_update, "Error displaying molecular image."
+    
 if __name__ == "__main__":
     app.run_server(debug=True)

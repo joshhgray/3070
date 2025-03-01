@@ -1,4 +1,5 @@
 from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
+from src.evolutionary_system.mutation_operations.atomic_substitution import atomic_substitution
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.selection_operations.verhulst_based_selection import verhulst_based_selection
 from src.evolutionary_system.selection_operations.stochastic_universal_sampling import stochastic_universal_sampling
@@ -7,10 +8,14 @@ from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
 from src.data_pipeline.make_population_graph import make_population_graph
+from rdkit import RDLogger
 import datetime
 import psutil
 import uuid
 import time
+
+# Suppress RDKit warnings globally
+#RDLogger.DisableLog('rdApp.*')
 
 def start_ga():
     """
@@ -31,9 +36,10 @@ def start_ga():
     config = load_config()
 
     # Mutation options mapped
+    # TODO - unify naming convention to eliminate map
     mutation_method_map = {
-        "hydroxylate": hydroxylate_mutate
-        # TODO - add/study more
+        "hydroxylate": hydroxylate_mutate,
+        "atomic_substitution": atomic_substitution
     }
 
     # TODO Crossover options mapped
@@ -50,9 +56,11 @@ def start_ga():
     fitness_function_map = {
         "qed": calculate_qed,
     }
-    print(config)
+
     # Assign user selected methods and functions
-    mutation_method = mutation_method_map[config["mutation_method"]]
+    selected_mutations = config["mutation_methods"]
+    mutation_methods = [mutation_method_map[method] for method in selected_mutations]
+
     #crossover_method = crossover_method_map[config["crossover_method"]] TODO
     selection_method = selection_method_map[config["selection_method"]]
     fitness_function = fitness_function_map[config["fitness_function"]]
@@ -69,7 +77,7 @@ def start_ga():
         initial_population=initial_population_graph,
         population_size=population_size,
         num_generations=config["num_generations"],
-        mutation_method=mutation_method,
+        mutation_methods=mutation_methods,
         crossover_method=None, # TODO
         num_elite_individuals=None, # TODO - backlog
         num_elite_groups=None, # TODO - backlog
