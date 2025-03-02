@@ -14,9 +14,12 @@ def log_metrics(run_id,
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
 
-    # Convert mutation methods to single string
+    # Convert mutation methods to single string / Same for crossover
     mutation_methods = ",".join(hyperparameters.get("mutation_methods"))
-    
+    # TODO - uncomment once more than 1 is implemented   
+    #crossover_methods = ",".join(hyperparameters.get("crossover_methods"))
+
+
     csv_row = {
         # Write out the current run's metadata
         "run_id": run_id,
@@ -25,11 +28,13 @@ def log_metrics(run_id,
         # Write out hyperparameters from config
         "population_size": hyperparameters["population_size"],
         "num_generations": hyperparameters["num_generations"],
+        "carrying_capacity": hyperparameters["carrying_capacity"],
         "mutation_method": mutation_methods,
-        "crossover_method": hyperparameters["crossover_method"],
+        "crossover_methods": hyperparameters["crossover_methods"],
+        "fitness_functions": hyperparameters["fitness_functions"],
+        "selection_method": hyperparameters["selection_method"],
         #"num_elite_individuals": hyperparameters["num_elite_individuals"],
         #"num_elite_groups": hyperparameters["num_elite_groups"],
-        "fitness_function": hyperparameters["fitness_function"],
         #"num_threads": hyperparameters["num_threads"],
         "fitness_results": fitness_results,
         # Write out performance metrics

@@ -1,7 +1,7 @@
 from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
 from src.evolutionary_system.mutation_operations.atomic_substitution import atomic_substitution
+from src.evolutionary_system.crossover_operations.graph_based_crossover import graph_based_crossover
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
-from src.evolutionary_system.selection_operations.verhulst_based_selection import verhulst_based_selection
 from src.evolutionary_system.selection_operations.stochastic_universal_sampling import stochastic_universal_sampling
 from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
 from src.evolutionary_system.utils.config_loader import load_config
@@ -34,36 +34,16 @@ def start_ga():
     
     # Load GA configuration
     config = load_config()
-
-    # Mutation options mapped
-    # TODO - unify naming convention to eliminate map
-    mutation_method_map = {
-        "hydroxylate": hydroxylate_mutate,
-        "atomic_substitution": atomic_substitution
-    }
-
-    # TODO Crossover options mapped
-    # crossover_method_map = {}
-
-    # Selection options mapped
-    selection_method_map = {
-        "verhulst": verhulst_based_selection,
-        "ranked": rank_based_selection,
-        # TODO - Add more
-    }
-
-    # Fitness options mapped
-    fitness_function_map = {
-        "qed": calculate_qed,
-    }
+    
+    carrying_capacity = config.get("carrying_capacity")
 
     # Assign user selected methods and functions
-    selected_mutations = config["mutation_methods"]
-    mutation_methods = [mutation_method_map[method] for method in selected_mutations]
-
-    #crossover_method = crossover_method_map[config["crossover_method"]] TODO
-    selection_method = selection_method_map[config["selection_method"]]
-    fitness_function = fitness_function_map[config["fitness_function"]]
+    selection_method  = globals()[config["selection_method"]]
+    mutation_methods = [globals()[method] for method in config["mutation_methods"]]
+    crossover_methods = [globals()[method] for method in config["crossover_methods"]]
+    fitness_functions = [globals()[method] for method in config["fitness_functions"]]
+    # TODO - temporary until multi-option fitness is implemented
+    fitness_function = fitness_functions[0]
 
     
     # Load population
@@ -78,12 +58,14 @@ def start_ga():
         population_size=population_size,
         num_generations=config["num_generations"],
         mutation_methods=mutation_methods,
-        crossover_method=None, # TODO
+        crossover_methods=crossover_methods,
         num_elite_individuals=None, # TODO - backlog
         num_elite_groups=None, # TODO - backlog
         selection_method=selection_method,
         fitness_function=fitness_function,
-        num_threads=None, # TODO - backlog
+        num_threads=None, # TODO - backlog,
+        selection_cutoff=50,
+        carrying_capacity=carrying_capacity,
     )
     
     # Collect fitness results

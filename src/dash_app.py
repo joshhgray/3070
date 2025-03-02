@@ -59,8 +59,8 @@ general_config_panel = dbc.Card([
             dbc.Col([
                 dbc.Label("Population Size"),
                 # Max population set to 2000 currently due to size of data present
-                dcc.Input(id="pop-size", type="number", value=1000,
-                    min=10, max=2000, style={
+                dcc.Input(id="pop-size", type="number", value=1000, min=10, max=2000,
+                        style={
                         "width": "110px",
                         "textAlign": "center",
                         "borderRadius": "8px",
@@ -73,15 +73,28 @@ general_config_panel = dbc.Card([
             dbc.Col([
                 dbc.Label("Generations"),
                 # Artificial cap of 9000 generations - this should be bypassable in advanced settings
-                dcc.Input(id="num-gen", type="number", value=1000,
-                    min=1, max=9000, style={
-                        "width": "110px",
-                        "textAlign": "center",
-                        "borderRadius": "8px",
-                        "border": "1px solid #ccc",
-                        "appearance": "textfield",
-                        "padding": "5px"
+                dcc.Input(id="num-gen", type="number", value=1000, min=1, max=9000,
+                        style={
+                            "width": "110px",
+                            "textAlign": "center",
+                            "borderRadius": "8px",
+                            "border": "1px solid #ccc",
+                            "appearance": "textfield",
+                            "padding": "5px"
                     }
+                )
+            ]),
+            dbc.Col([
+                dbc.Label("Carrying Capacity"),
+                dcc.Input(id="carrying-capacity", type="number", value=2000, min=10, max=5000,
+                        style={
+                            "width": "110px",
+                            "textAlign": "center",
+                            "borderRadius": "8px",
+                            "border": "1px solid #ccc",
+                            "appearance": "textfield",
+                            "padding": "5px"
+                          }
                 )
             ])
         ])
@@ -93,48 +106,50 @@ ga_operators_panel = dbc.Card([
     dbc.CardHeader("Genetic Algorithm Operators"),
     dbc.CardBody([
         html.Div([
-            dbc.Label("Selection Method"),
+            dbc.Label("Selection Methods"),
             dcc.Dropdown(
                 id="selection-method",
                 options=[
-                    {"label": "Verhulst", "value": "verhulst"},
-                    {"label": "Ranked", "value": "ranked"}
+                    {"label": "SUS", "value": "stochastic_universal_sampling"},
+                    {"label": "Ranked", "value": "rank_based_selection"}
                 ],
-                value="ranked"
+                value="stochastic_universal_sampling"
             )
         ], className="mb-3"),
         html.Div([
-            dbc.Label("Mutation Method"),
+            dbc.Label("Mutation Methods"),
             dcc.Dropdown(
                 id="mutation-methods",
                 options=[
-                    {"label": "Hydroxylate", "value": "hydroxylate"},
+                    {"label": "Hydroxylate", "value": "hydroxylate_mutate"},
                     {"label": "Atomic Substitution", "value": "atomic_substitution"}
                 ],
-                value=["hydroxylate", "atomic_substitution"],
+                value=["hydroxylate_mutate", "atomic_substitution"],
                 multi=True
             )
         ], className="mb-3"),
         html.Div([
-            dbc.Label("Crossover Method"),
+            dbc.Label("Crossover Methods"),
             dcc.Dropdown(
-                id="crossover-method",
+                id="crossover-methods",
                 options=[
-                    {"label": "One-Point", "value": "onepoint"},
-                    {"label": "Two-Point", "value": "twopoint"}
+                    {"label": "Graph Based", "value": "graph_based_crossover"},
+                    #{"label": "HGT", "value": "hybrid_gene_crossover"}
                 ],
-                value="onepoint"
+                value=["graph_based_crossover"], 
+                multi=True 
             )
         ], className="mb-3"),
         html.Div([
             dbc.Label("Fitness Function"),
             dcc.Dropdown(
-                id="fitness-function",
+                id="fitness-functions",
                 options=[
-                    {"label": "QED", "value": "qed"},
-                    {"label": "Ro5", "value": "rule_of_five"}
+                    {"label": "QED", "value": "calculate_qed"},
+                    #{"label": "Ro5", "value": "rule_of_five"}
                 ],
-                value="qed"
+                value=["calculate_qed"],
+                multi=True
             )
         ], className="mb-3")
     ])
@@ -215,25 +230,26 @@ app.layout = dbc.Container([
     [
         Input("pop-size", "value"),
         Input("num-gen", "value"),
+        Input("carrying-capacity", "value"),
         Input("selection-method", "value"),
         Input("mutation-methods", "value"),
-        Input("crossover-method", "value"),
-        Input("fitness-function", "value"),
+        Input("crossover-methods", "value"),
+        Input("fitness-functions", "value"),
     ],
     State("current-config", "data")
 )
-def update_config(population_size, num_generations, selection_method,
-                  mutation_methods, crossover_method, fitness_function,
-                  current_config):
+def update_config(population_size, num_generations, carrying_capacity, selection_method,
+                  mutation_methods, crossover_methods, fitness_functions, current_config):
     # Slider updates result in the config converting to a string
     # So, it must be manually converted back to dict here
     current_config = {}
     current_config["population_size"] = population_size
     current_config["num_generations"] = num_generations
+    current_config["carrying_capacity"] = carrying_capacity
     current_config["selection_method"] = selection_method
     current_config["mutation_methods"] = mutation_methods
-    current_config["crossover_method"] = crossover_method
-    current_config["fitness_function"] = fitness_function
+    current_config["crossover_methods"] = crossover_methods
+    current_config["fitness_functions"] = fitness_functions
 
     save_hyperparameters(current_config)
     return "Configuration Updated."

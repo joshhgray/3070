@@ -1,8 +1,11 @@
-crossover_method: onepoint
-fitness_function: qed
+carrying_capacity: 2000
+crossover_methods:
+- graph_based_crossover
+fitness_functions:
+- calculate_qed
 mutation_methods:
-- hydroxylate
+- hydroxylate_mutate
 - atomic_substitution
 num_generations: 1000
 population_size: 1000
-selection_method: ranked
+selection_method: stochastic_universal_sampling
