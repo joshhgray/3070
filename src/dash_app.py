@@ -9,7 +9,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga
-from src.evolutionary_system.utils.ga_state import set_ga_active, is_ga_active, get_latest_diversity, get_latest_population
+from src.evolutionary_system.utils.ga_state import set_ga_active, is_ga_active, get_latest_diversity, get_latest_population, get_latest_crossover_rates, get_latest_mutation_rates, get_crossover_log, get_mutation_log
 from src.molecular_validation.molecular_evaluation import evaluate_mols
 from src.evolutionary_system.utils.ga_state import get_latest_population
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
@@ -170,9 +170,49 @@ live_tracking_panel = dbc.Card([
     dbc.CardHeader("Live Tracking"),
     dbc.CardBody([
         dbc.Row([
+            # LIVE TRACKING SLOT 1
             dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
-            dbc.Col(dcc.Graph(id="graph-2", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            # LIVE TRACKING SLOT 2
+            dbc.Col(
+                html.Div([
+                dbc.Row([
+                    # Live Mutation Success Rate Display
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H4(id="mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Mutation Success Rate", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ], color="info", inverse=True)
+                    ]),
+                    # Live Crossover Success Rate Display
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H4(id="crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Crossover Success Rate", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ], color="primary", inverse=True, style={"marginBottom": "20px"})
+                    ])
+                ]),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.CardBody([
+                            html.H5(id="avg-mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
+                            html.P("Average Mutation Success Rate", className="card-text", style={"textAlign": "center"})
+                        ])
+                    ]),
+                    dbc.Col([
+                        dbc.CardBody([
+                            html.H5(id="avg-crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
+                            html.P("Average Crossover Success Rate", className="card-text", style={"textAlign": "center"})
+                        ])
+                    ])
+                ]),
+            ]), width=3),
+            # LIVE TRACKING SLOT 3
             dbc.Col(dcc.Graph(id="graph-3", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            # LIVE TRACKING SLOT 4
             dbc.Col(dcc.Graph(id="graph-4", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3)
         ])
     ]),
@@ -449,6 +489,30 @@ def update_molecule_image(selected_rows, mol_list):
     except Exception as e:
         print(f"Error updating Molecular Image: {e}")
         return dash.no_update, "Error displaying molecular image."
-    
+
+@app.callback(
+    Output("mutation-percentage-display", "children"),
+    Output("crossover-percentage-display", "children"),
+    Output("avg-mutation-percentage-display", "children"),
+    Output("avg-crossover-percentage-display", "children"),
+    Input("interval-component", "n_intervals")
+)
+def update_scuess_rates(n_intervals):
+    mutation_rate = get_latest_mutation_rates()
+    crossover_rate = get_latest_crossover_rates()
+
+    mutation_log = get_mutation_log()
+    crossover_log = get_crossover_log()
+    avg_mutation_rate = round(sum(mutation_log) / len(mutation_log) if mutation_log else 0)
+    avg_crossover_rate = round(sum(crossover_log) / len(crossover_log) if crossover_log else 0)
+
+    mutation_percentage_text = f"{mutation_rate:.0f}%"
+    crossover_percentage_text = f"{crossover_rate:.0f}%"
+    avg_mutation_percentage_text = f"{avg_mutation_rate:.0f}%"
+    avg_crossover_percentage_text = f"{avg_crossover_rate:.0f}%"
+
+
+    return mutation_percentage_text, crossover_percentage_text, avg_mutation_percentage_text, avg_crossover_percentage_text
+
 if __name__ == "__main__":
     app.run_server(debug=True)

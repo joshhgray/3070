@@ -3,7 +3,7 @@ from src.evolutionary_system.fitness_operations.calculate_population_diversity i
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
-from src.evolutionary_system.utils.ga_state import update_latest_diversity, update_latest_population, is_ga_active, set_ga_active
+from src.evolutionary_system.utils.ga_state import update_latest_diversity, update_latest_population, is_ga_active, set_ga_active, update_latest_crossover_rates, update_latest_mutation_rates, update_crossover_log, update_mutation_log
 from src.data_pipeline.mol_to_graph import mol_to_graph 
 import plotly.express as px
 from rdkit import Chem
@@ -13,7 +13,9 @@ import uuid
 import csv
 import os
 
+# Initialize Logs
 latest_diversity_log = []
+
 ga_active = False
 
 # Probabilities of any of the mutations to occur in current generational cycle
@@ -26,12 +28,16 @@ MUTATION_PROBABILITIES = {
 
 def apply_mutation(working_population, mutation_methods, parents):
     """
-    Applies probabalistic mutation to the parent molecules.6
+    Applies probabalistic mutation to the parent molecules.
+    Continusously tracks success rate of mutation operations.
 
     :param working_population: Current population graph (nx.DiGraph)
     :param mutation_methods: List of possible mutation methods 
     :param parents: List of selected parent nodes
+    :returns: List of mutation success and attempt rates.
     """
+    mutation_attempts = 0
+    mutation_successes = 0
     for parent in parents:
         # Extract mol graph from parent
         # important to add backup logic bc it is easy to
@@ -54,24 +60,25 @@ def apply_mutation(working_population, mutation_methods, parents):
         for mutation_method in mutation_methods:
             # Retrieve mutation method by name (string)
             if random.random() < MUTATION_PROBABILITIES[mutation_method.__name__]:
+                mutation_attempts += 1
                 mutated_mol = mutation_method(rw_mol)
 
-            # Continue on if mutation has failed
-            if mutated_mol == rw_mol or mutated_mol is None or mutated_mol.GetNumAtoms() == 0:
-                # Keeps the most recently valid molecule - skipping current operation
-                mutated_mol = rw_mol
+                # Revert to original if mutation or sanitization fails
+                if mutated_mol is None or mutated_mol.GetNumAtoms() == 0:
+                    mutated_mol = rw_mol
+                try:
+                    Chem.SanitizeMol(mutated_mol)
+                except Exception as e:
+                    mutated_mol = rw_mol
 
-            try:
-                Chem.SanitizeMol(mutated_mol)
-            except Exception as e:
-                mutated_mol = rw_mol
-            rw_mol = mutated_mol
-
-        # add successfully created offspring to offspring list
-        # Extract new SMILES string 
-        mutated_smiles = Chem.MolToSmiles(mutated_mol)
+                # Check if mutation was successful
+                mutated_smiles = Chem.MolToSmiles(mutated_mol)
+                original_smiles = Chem.MolToSmiles(rw_mol)
+                if mutated_smiles != original_smiles:
+                    mutation_successes += 1
         
-        # Convert back to nx.Graph
+        # New mol data
+        mutated_smiles = Chem.MolToSmiles(mutated_mol)
         mutated_graph = mol_to_graph(mutated_smiles)
         if mutated_graph is None:
             continue
@@ -84,15 +91,19 @@ def apply_mutation(working_population, mutation_methods, parents):
         working_population.nodes[new_id]["qed"] = calculate_qed(mutated_graph)
         # TODO - remove? OR implement weighted fitness function
         working_population.nodes[new_id]["raw_fitness"] = working_population.nodes[new_id]["qed"]
+    
+    return mutation_attempts, mutation_successes
 
 def apply_crossover(working_population, crossover_methods, parents):
     """
     Pairs parents together and iteratively attempts to perform genetic crossover, creating new
     offspring. If validation of molecule is successful, the offspring is added to the population.
+    Continuosly tracks success rate of crossover mutations.
 
     :param working_population: Current Population graph (nx.DiGraph)
     :param crossover_methods: list of possible crossover methods
     :param parents: list of selected parent nodes
+    :returns: List of crossover attempt and success rates.
     """
 
     # Parent pairing logic 
@@ -101,12 +112,16 @@ def apply_crossover(working_population, crossover_methods, parents):
     # Create pairs of parents
     parent_pairs = [(parents[i], parents[i+1]) for i in range(0, len(parents) - 1, 2)]
 
+    crossover_attempts = 0
+    crossover_successes = 0
+
     # Iterate over parents
     for parent1, parent2 in parent_pairs:
         # Extract each parents molecular graph
         mol_graph1 = working_population.nodes[parent1].get("compounds")[0].get("mol_graph")
         mol_graph2 = working_population.nodes[parent2].get("compounds")[0].get("mol_graph")
 
+        crossover_attempts += 1
         # Apply Crossover technique
         # TODO - currently just doing a random choice, want to make this probabalistic like
         #        mutation, gotta figure a few things out first tho. (also there is only 1 x-over op rn)
@@ -126,6 +141,8 @@ def apply_crossover(working_population, crossover_methods, parents):
         except Exception:
             continue
 
+        
+        crossover_successes += 1
         # Store new molecule in population
         offspring_smiles = Chem.MolToSmiles(offspring_mol)
         offspring_graph_valid = mol_to_graph(offspring_smiles)
@@ -137,6 +154,8 @@ def apply_crossover(working_population, crossover_methods, parents):
             working_population.nodes[new_id]["qed"] = calculate_qed(offspring_graph_valid)
             # TODO - remove? OR implement weighted fitness function
             working_population.nodes[new_id]["raw_fitness"] = working_population.nodes[new_id]["qed"]
+
+    return crossover_attempts, crossover_successes
 
 def apply_selection(working_population, selection_method, selection_cutoff, carrying_capacity):
     """
@@ -192,13 +211,25 @@ def run_ga(initial_population, population_size, num_generations,
         """
         MUTATION OPERATION
         """
-        apply_mutation(working_population, mutation_methods, parents)
+        mutation_attempts, mutation_successess = apply_mutation(working_population, mutation_methods, parents)
 
         """
         CROSSOVER OPERATION 
         """
-        apply_crossover(working_population, crossover_methods, parents)
+        crossover_attempts, crossover_successess = apply_crossover(working_population, crossover_methods, parents)
 
+        # Log generational mutation and crossover success rates
+        mutation_rate = (mutation_successess / mutation_attempts * 100)
+        crossover_rate = (crossover_successess / crossover_attempts * 100)
+
+        # Log to global state TODO - can probably condense these
+        update_mutation_log(mutation_rate)
+        update_crossover_log(crossover_rate)
+
+        update_latest_mutation_rates(mutation_rate)
+        update_latest_crossover_rates(crossover_rate)
+        
+        
 
         """
         CALCULATE DIVERSITY & LOG METRICS

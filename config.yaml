@@ -5,7 +5,6 @@ fitness_functions:
 - calculate_qed
 mutation_methods:
 - hydroxylate_mutate
-- atomic_substitution
 num_generations: 1000
 population_size: 1000
 selection_method: stochastic_universal_sampling
