@@ -2,7 +2,7 @@ import unittest
 import networkx as nx
 import rdkit
 from rdkit import Chem
-from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
+from src.evolutionary_system.fitness_operations.fitness_functions import calculate_qed
 
 class TestCalculateQED(unittest.TestCase):
     def setUp(self):

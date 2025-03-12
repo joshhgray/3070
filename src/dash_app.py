@@ -9,7 +9,12 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .controller import start_ga
-from src.evolutionary_system.utils.ga_state import set_ga_active, is_ga_active, get_latest_diversity, get_latest_population, get_latest_crossover_rates, get_latest_mutation_rates, get_crossover_log, get_mutation_log
+from src.evolutionary_system.utils.ga_state import (
+    set_ga_active, is_ga_active, get_latest_diversity, get_latest_population, 
+    get_latest_crossover_rates, get_latest_mutation_rates, get_crossover_log, 
+    get_mutation_log, get_current_generation_number, get_current_population_size,
+    get_selected_fitness_functions, update_selected_fitness_functions, get_mol_weight_threshold,
+    update_mol_weight_threshold)
 from src.molecular_validation.molecular_evaluation import evaluate_mols
 from src.evolutionary_system.utils.ga_state import get_latest_population
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
@@ -105,6 +110,7 @@ general_config_panel = dbc.Card([
 ga_operators_panel = dbc.Card([
     dbc.CardHeader("Genetic Algorithm Operators"),
     dbc.CardBody([
+        # SELECTION METHOD SELECTION
         html.Div([
             dbc.Label("Selection Methods"),
             dcc.Dropdown(
@@ -116,6 +122,7 @@ ga_operators_panel = dbc.Card([
                 value="stochastic_universal_sampling"
             )
         ], className="mb-3"),
+        # MUTATION METHOD SELECTION
         html.Div([
             dbc.Label("Mutation Methods"),
             dcc.Dropdown(
@@ -128,6 +135,7 @@ ga_operators_panel = dbc.Card([
                 multi=True
             )
         ], className="mb-3"),
+        # CROSSOVER METHOD SELECTION
         html.Div([
             dbc.Label("Crossover Methods"),
             dcc.Dropdown(
@@ -140,18 +148,42 @@ ga_operators_panel = dbc.Card([
                 multi=True 
             )
         ], className="mb-3"),
-        html.Div([
-            dbc.Label("Fitness Function"),
-            dcc.Dropdown(
-                id="fitness-functions",
+        # FITNESS WEIGHT SELECTION
+        # html.Div([
+        #     dbc.Label("Fitness Function"),
+        #     dcc.Dropdown(
+        #         id="fitness-functions",
+        #         options=[
+        #             {"label": "QED", "value": "calculate_qed"},
+        #             #{"label": "Ro5", "value": "rule_of_five"}
+        #         ],
+        #         value=["calculate_qed"],
+        #         multi=True
+        #     )
+        # ], className="mb-3")
+        dbc.CardHeader("Select Fitness Functions"),
+        dbc.CardBody([
+            dbc.Checklist(
+                id="fitness-function-selection",
                 options=[
-                    {"label": "QED", "value": "calculate_qed"},
-                    #{"label": "Ro5", "value": "rule_of_five"}
+                    {"label": "QED", "value": "qed"},
+                    {"label": "SA Score", "value": "sa"},
+                    {"label": "Lipinski Score (Ro5)", "value": "ro5"}
                 ],
-                value=["calculate_qed"],
-                multi=True
-            )
-        ], className="mb-3")
+                value=get_selected_fitness_functions(),
+                inline=True
+            ),
+            dbc.Row([
+                html.Label("MW Threshold (Da)"),
+                dcc.Slider(
+                    id="mw-threshold-slider",
+                    min=200, max=1500,
+                    value=get_mol_weight_threshold(),
+                    marks={250: "250", 500: "500", 750: "750", 1000: "1000", 1250: "1250", 1500: "1500"}
+                )
+            ])
+        ]),
+        
     ])
 ], className="mb-3")
 
@@ -170,46 +202,72 @@ live_tracking_panel = dbc.Card([
     dbc.CardHeader("Live Tracking"),
     dbc.CardBody([
         dbc.Row([
-            # LIVE TRACKING SLOT 1
-            dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
-            # LIVE TRACKING SLOT 2
+            # LIVE TRACKING SLOT 1 - General GA Stats
             dbc.Col(
                 html.Div([
+                dbc.Row([
+                    # Live Generation Number Display
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H4(id="current-generation-number-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Current Generation", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ], style={"marginBottom": "10px", "backgroundColor": "#99b3ff"})
+                    ]),
+                    # Live Population Size Dislpay
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H4(id="current-population-size-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Current Population Size", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ], style={"marginBottom": "10px", "backgroundColor": "#99b3ff"})
+                    ])
+                ]),
                 dbc.Row([
                     # Live Mutation Success Rate Display
                     dbc.Col([
                         dbc.Card([
                             dbc.CardBody([
-                                html.H4(id="mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
-                                html.P("Mutation Success Rate", className="card-text", style={"textAlign": "center"})
+                                html.H5(id="mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Current Mutation Success Rate", className="card-text", style={"textAlign": "center"})
                             ])
-                        ], color="info", inverse=True)
+                        ], style={"marginBottom": "10px", "backgroundColor": "#809fff"})
                     ]),
+                    # Live Average Mutation Success Rate Display
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H5(id="avg-mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Average Mutation Success Rate", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ],style={"marginBottom": "10px", "backgroundColor": "#809fff"})
+                    ])
+                ]),
+                dbc.Row([
                     # Live Crossover Success Rate Display
                     dbc.Col([
                         dbc.Card([
                             dbc.CardBody([
-                                html.H4(id="crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
-                                html.P("Crossover Success Rate", className="card-text", style={"textAlign": "center"})
+                                html.H5(id="crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Current Crossover Success Rate", className="card-text", style={"textAlign": "center"})
                             ])
-                        ], color="primary", inverse=True, style={"marginBottom": "20px"})
-                    ])
-                ]),
-                dbc.Row([
-                    dbc.Col([
-                        dbc.CardBody([
-                            html.H5(id="avg-mutation-percentage-display", className="card-title", style={"textAlign": "center"}),
-                            html.P("Average Mutation Success Rate", className="card-text", style={"textAlign": "center"})
-                        ])
+                        ], style={"marginBottom": "10px", "backgroundColor": "#668cff"})
                     ]),
+                    # Live Average Crossover Success Rate Display
                     dbc.Col([
-                        dbc.CardBody([
-                            html.H5(id="avg-crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
-                            html.P("Average Crossover Success Rate", className="card-text", style={"textAlign": "center"})
-                        ])
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H5(id="avg-crossover-percentage-display", className="card-title", style={"textAlign": "center"}),
+                                html.P("Average Crossover Success Rate", className="card-text", style={"textAlign": "center"})
+                            ])
+                        ], style={"marginBottom": "10px", "backgroundColor": "#668cff"})
                     ])
                 ]),
             ]), width=3),
+            # LIVE TRACKING SLOT 2 - Population Diversity Graph
+            dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
             # LIVE TRACKING SLOT 3
             dbc.Col(dcc.Graph(id="graph-3", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
             # LIVE TRACKING SLOT 4
@@ -258,7 +316,7 @@ app.layout = dbc.Container([
         dbc.Col([
             dbc.Row(dbc.Col(live_tracking_panel), className="mb-3"),
             dbc.Row([
-                dbc.Col(results_panel, width=7),
+                dbc.Col(results_panel, width=9),
                 dbc.Col(molecule_image_section, width=3)
             ])
         ], width=10)
@@ -274,12 +332,11 @@ app.layout = dbc.Container([
         Input("selection-method", "value"),
         Input("mutation-methods", "value"),
         Input("crossover-methods", "value"),
-        Input("fitness-functions", "value"),
     ],
     State("current-config", "data")
 )
 def update_config(population_size, num_generations, carrying_capacity, selection_method,
-                  mutation_methods, crossover_methods, fitness_functions, current_config):
+                  mutation_methods, crossover_methods, current_config):
     # Slider updates result in the config converting to a string
     # So, it must be manually converted back to dict here
     current_config = {}
@@ -289,7 +346,6 @@ def update_config(population_size, num_generations, carrying_capacity, selection
     current_config["selection_method"] = selection_method
     current_config["mutation_methods"] = mutation_methods
     current_config["crossover_methods"] = crossover_methods
-    current_config["fitness_functions"] = fitness_functions
 
     save_hyperparameters(current_config)
     return "Configuration Updated."
@@ -371,7 +427,7 @@ def update_diversity_graph(n_intervals, is_running):
                 y=0.5,
                 xref="paper",
                 yref="paper",
-                font=dict(size=30, color="rgba(255,255,255,0.2)"),
+                font=dict(size=30, color="rgba(153, 179, 255,0.2)"),
                 showarrow=False
             ),
             
@@ -389,7 +445,7 @@ def update_diversity_graph(n_intervals, is_running):
         showticklabels=True,
         ticks="outside",
         tickvals=[0.0,0.5,1.0],
-        tickfont=dict(size=12),
+        tickfont=dict(size=14, color="lightblue", family="Arial Bold"),
         range=[0,1],
         fixedrange=True,
         showgrid=False,
@@ -409,7 +465,7 @@ def update_standings(n_clicks):
             population = get_latest_population()
             # TODO - find a reference set (CheMBL)
             reference_set = None
-            df = evaluate_mols(population, top_n=10, reference_set=reference_set)
+            df = evaluate_mols(population, top_n=50, reference_set=reference_set)
             mol_list = df.to_dict("records")
 
             if df is not None:
@@ -497,7 +553,7 @@ def update_molecule_image(selected_rows, mol_list):
     Output("avg-crossover-percentage-display", "children"),
     Input("interval-component", "n_intervals")
 )
-def update_scuess_rates(n_intervals):
+def update_success_rates(n_intervals):
     mutation_rate = get_latest_mutation_rates()
     crossover_rate = get_latest_crossover_rates()
 
@@ -513,6 +569,36 @@ def update_scuess_rates(n_intervals):
 
 
     return mutation_percentage_text, crossover_percentage_text, avg_mutation_percentage_text, avg_crossover_percentage_text
+
+@app.callback(
+        Output("current-generation-number-display", "children"),
+        Output("current-population-size-display", "children"),
+        Input("interval-component", "n_intervals")
+)
+def update_ga_stats(n_intervals):
+    current_generation_number = get_current_generation_number()
+    current_population_size = get_current_population_size()
+
+    current_generation_number_text = f"{current_generation_number:.0f}"
+    current_population_size_text = f"{current_population_size:.0f}"
+    
+    return current_generation_number_text, current_population_size_text
+
+@app.callback(
+    Output("fitness-function-selection", "value"),
+    Input("fitness-function-selection", "value")
+)
+def update_selected_fitness(selected_functions):
+    update_selected_fitness_functions(selected_functions)
+    return selected_functions
+
+@app.callback(
+    Output("mw-threshold-slider", "value"),
+    Input("mw-threshold-slider", "value")
+)
+def update_mol_threshold(value):
+    update_mol_weight_threshold(value)
+    return dash.no_update
 
 if __name__ == "__main__":
     app.run_server(debug=True)

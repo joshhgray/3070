@@ -1,6 +1,7 @@
-from guacamol.utils.chemistry import smiles_to_rdkit_mol #type:ignore
+from guacamol.utils.chemistry import smiles_to_rdkit_mol
 from guacamol.distribution_learning_benchmark import ValidityBenchmark, UniquenessBenchmark, NoveltyBenchmark, KLDivBenchmark
 from moses.metrics.SA_Score.sascorer import calculateScore
+from rdkit.Chem import rdMolDescriptors, Crippen
 import pandas as pd
 
 class SimpleGenerator:
@@ -43,7 +44,6 @@ def evaluate_mols(population, top_n=10, reference_set=None):
         # Extract data from each Mol and append to results list, also calulating Synthetic Accessibility score
         for idx, (node, fitness) in enumerate(top_candidates):
             compounds = population.nodes[node]["compounds"]
-
             smiles = compounds[0]["structure"] if compounds else None
 
             if not smiles:
@@ -54,11 +54,15 @@ def evaluate_mols(population, top_n=10, reference_set=None):
 
             if mol:
                 sa_score = calculateScore(mol)
+                mol_weight = rdMolDescriptors.CalcExactMolWt(mol)
+                logp_score = Crippen.MolLogP(mol)
 
                 results.append({
                     "Molecule": f"Compound {idx+1}",
                     "Fitness": round(fitness, 4),
                     "SAScore": round(sa_score, 4),
+                    "Molecular Weight": round(mol_weight, 4),
+                    "LogP": round(logp_score, 4),
                     "SMILES": smiles
                 })
         df = pd.DataFrame(results)
@@ -88,6 +92,11 @@ def evaluate_mols(population, top_n=10, reference_set=None):
 
             df["Novelty"] = round(novelty_score, 4)
             df["KL Divergence"] = round(kl_div_score, 4)
+
+        # Reorder so that SMILES is at end of df (stylistic choice for front-end)
+        cols = [col for col in df.columns if col != "SMILES"] + ["SMILES"]
+        df = df[cols]
+
         return df
 
 

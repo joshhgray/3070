@@ -6,6 +6,10 @@ mutation_success_rate_log = []
 crossover_success_rate_log = []
 latest_mutation_success_rates = 0
 latest_crossover_success_rates = 0
+current_population_size = 0
+current_generation_number = 0
+mol_weight_threshold = 500
+selected_fitness_functions = []
 
 def set_ga_active(value):
     global ga_active
@@ -55,3 +59,32 @@ def update_crossover_log(rate):
 
 def get_crossover_log():
     return crossover_success_rate_log
+
+def update_current_population_size(population_size):
+    global current_population_size
+    current_population_size = population_size
+
+def get_current_population_size():
+    return current_population_size
+
+def update_current_generation_number(generation_number):
+    global current_generation_number
+    current_generation_number = generation_number
+
+def get_current_generation_number():
+    return current_generation_number
+
+def update_mol_weight_threshold(value):
+    global mol_weight_threshold
+    mol_weight_threshold = value
+
+def get_mol_weight_threshold():
+    return mol_weight_threshold
+
+def update_selected_fitness_functions(functions):
+    # Takes list of fitness functions
+    global selected_fitness_functions
+    selected_fitness_functions = functions
+
+def get_selected_fitness_functions():
+    return selected_fitness_functions

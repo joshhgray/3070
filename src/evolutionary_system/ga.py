@@ -1,10 +1,15 @@
-from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
+from src.evolutionary_system.fitness_operations.aggregate_fitness import aggregate_fitness
 from src.evolutionary_system.fitness_operations.calculate_population_diversity import calculate_population_diversity
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
-from src.evolutionary_system.utils.ga_state import update_latest_diversity, update_latest_population, is_ga_active, set_ga_active, update_latest_crossover_rates, update_latest_mutation_rates, update_crossover_log, update_mutation_log
-from src.data_pipeline.mol_to_graph import mol_to_graph 
+from src.evolutionary_system.utils.ga_state import (
+    update_latest_diversity, update_latest_population, is_ga_active, 
+    set_ga_active, update_latest_crossover_rates, update_latest_mutation_rates, 
+    update_crossover_log, update_mutation_log, update_current_population_size, 
+    update_current_generation_number
+)
+from src.data_pipeline.mol_to_graph import mol_to_graph
 import plotly.express as px
 from rdkit import Chem
 import pandas as pd
@@ -88,9 +93,7 @@ def apply_mutation(working_population, mutation_methods, parents):
         new_id = f"offspring_{uuid.uuid4().hex[:10]}"
         working_population.add_node(new_id, level="Individual", compounds=[])
         working_population.nodes[new_id]["compounds"] = [{"structure": mutated_smiles, "mol_graph": mutated_graph}]
-        working_population.nodes[new_id]["qed"] = calculate_qed(mutated_graph)
-        # TODO - remove? OR implement weighted fitness function
-        working_population.nodes[new_id]["raw_fitness"] = working_population.nodes[new_id]["qed"]
+        working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(mutated_graph)
     
     return mutation_attempts, mutation_successes
 
@@ -151,9 +154,7 @@ def apply_crossover(working_population, crossover_methods, parents):
             working_population.add_node(new_id, level="Individual", compounds=[])
             working_population.nodes[new_id]["compounds"] = [{"structure": offspring_smiles, "mol_graph": offspring_graph_valid}]
             # TODO - move this to GA so that fitness can be properly evaluated for new mol (or do here idk)
-            working_population.nodes[new_id]["qed"] = calculate_qed(offspring_graph_valid)
-            # TODO - remove? OR implement weighted fitness function
-            working_population.nodes[new_id]["raw_fitness"] = working_population.nodes[new_id]["qed"]
+            working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(offspring_graph_valid)
 
     return crossover_attempts, crossover_successes
 
@@ -177,10 +178,13 @@ def apply_selection(working_population, selection_method, selection_cutoff, carr
 
 def run_ga(initial_population, population_size, num_generations, 
            mutation_methods, crossover_methods, num_elite_individuals,
-           num_elite_groups, selection_method, fitness_function,
-           num_threads, selection_cutoff, carrying_capacity):
+           num_elite_groups, selection_method, num_threads, 
+           selection_cutoff, carrying_capacity):
     
+    # Initialize
     diversity_log = []
+    current_generation_number = 0
+    current_population_size = population_size
     working_population = initial_population
 
     cd = os.path.dirname(os.path.abspath(__file__))
@@ -189,12 +193,9 @@ def run_ga(initial_population, population_size, num_generations,
     """EVALUATE INITIAL FITNESS"""
     for node in working_population.nodes:
         if working_population.nodes[node]["level"] == "Individual":
-            # this will eventually just take an all encompasing fitness function
-            # where all metrics are calculated at once. maybe
-            compounds = working_population.nodes[node].get("compounds", [])
+            compounds = working_population.nodes[node].get("compounds")
             mol_graph = compounds[0].get("mol_graph") if compounds else None
-            working_population.nodes[node]["raw_fitness"] = fitness_function(mol_graph)
-            # will be calculated in fitness.py later - this is temporary
+            working_population.nodes[node]["raw_fitness"] = aggregate_fitness(mol_graph)
 
     """
     GENERATIONAL LOOP
@@ -202,6 +203,7 @@ def run_ga(initial_population, population_size, num_generations,
     for generation in range(num_generations):
         if not is_ga_active():
             break
+        current_generation_number += 1
 
         """
         SELECTION OPERATION 
@@ -219,8 +221,10 @@ def run_ga(initial_population, population_size, num_generations,
         crossover_attempts, crossover_successess = apply_crossover(working_population, crossover_methods, parents)
 
         # Log generational mutation and crossover success rates
-        mutation_rate = (mutation_successess / mutation_attempts * 100)
-        crossover_rate = (crossover_successess / crossover_attempts * 100)
+        if mutation_attempts > 0:
+            mutation_rate = (mutation_successess / mutation_attempts * 100)
+        if crossover_attempts > 0:
+            crossover_rate = (crossover_successess / crossover_attempts * 100)
 
         # Log to global state TODO - can probably condense these
         update_mutation_log(mutation_rate)
@@ -229,28 +233,25 @@ def run_ga(initial_population, population_size, num_generations,
         update_latest_mutation_rates(mutation_rate)
         update_latest_crossover_rates(crossover_rate)
         
-        
-
         """
         CALCULATE DIVERSITY & LOG METRICS
         """
-        # TODO - pick a better variable name
-        n=1 # I've made this a variable for now, I may add the ability for the user to change it - TODO
-        # - adds the ability to calculate metrics at less frequent intervals - this does not yet reach the user.
-        # Calculate population-wide diversity
-        if generation % n == 0:
-            diversity = calculate_population_diversity(working_population)
-            working_population.nodes["Population"]["diversity"] = diversity
-            diversity_log.append(diversity)
+        diversity = calculate_population_diversity(working_population)
+        working_population.nodes["Population"]["diversity"] = diversity
+        diversity_log.append(diversity)
 
-            with open(diversity_log_path, "a") as f:
-                writer = csv.writer(f)
-                writer.writerow((generation, diversity))
+        with open(diversity_log_path, "a") as f:
+            writer = csv.writer(f)
+            writer.writerow((generation, diversity))
 
             
         # Save the latest population and diversity score log in global state
         update_latest_population(working_population)
         update_latest_diversity(diversity_log)
+        current_population_size = sum(1 for node in working_population.nodes if working_population.nodes[node]["level"] == "Individual")
+
+        update_current_generation_number(current_generation_number)
+        update_current_population_size(current_population_size)
     
     # Update GA state upon completion of Generational Loops
     set_ga_active(False)

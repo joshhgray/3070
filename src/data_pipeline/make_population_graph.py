@@ -101,9 +101,7 @@ def make_population_graph(population_size):
             population_graph.add_node(
                 accession_number,
                 level="Individual",
-                qed=0.0,
                 raw_fitness=0.0,
-                scaled_fitness=0.0,
                 accession_number=accession_number,
                 biosynthesis_class=biosynthesis_class,
                 taxonomy=taxonomy,

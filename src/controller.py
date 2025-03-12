@@ -3,7 +3,6 @@ from src.evolutionary_system.mutation_operations.atomic_substitution import atom
 from src.evolutionary_system.crossover_operations.graph_based_crossover import graph_based_crossover
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.selection_operations.stochastic_universal_sampling import stochastic_universal_sampling
-from src.evolutionary_system.fitness_operations.calculate_qed import calculate_qed
 from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.logger import log_metrics
 from src.evolutionary_system.ga import run_ga
@@ -41,9 +40,6 @@ def start_ga():
     selection_method  = globals()[config["selection_method"]]
     mutation_methods = [globals()[method] for method in config["mutation_methods"]]
     crossover_methods = [globals()[method] for method in config["crossover_methods"]]
-    fitness_functions = [globals()[method] for method in config["fitness_functions"]]
-    # TODO - temporary until multi-option fitness is implemented
-    fitness_function = fitness_functions[0]
 
     
     # Load population
@@ -62,7 +58,6 @@ def start_ga():
         num_elite_individuals=None, # TODO - backlog
         num_elite_groups=None, # TODO - backlog
         selection_method=selection_method,
-        fitness_function=fitness_function,
         num_threads=None, # TODO - backlog,
         selection_cutoff=50,
         carrying_capacity=carrying_capacity,
