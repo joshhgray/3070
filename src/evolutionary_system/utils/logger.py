@@ -15,7 +15,7 @@ def log_metrics(run_id,
     file_path = os.path.join(cd, "metrics_log.csv")
 
     # Convert mutation methods to single string / Same for crossover
-    mutation_methods = ",".join(hyperparameters.get("mutation_methods"))
+    mutation_methods = ",".join([method for method in hyperparameters.get("mutation_methods")])
     # TODO - uncomment once more than 1 is implemented   
     #crossover_methods = ",".join(hyperparameters.get("crossover_methods"))
 

@@ -1,5 +1,4 @@
-from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
-from src.evolutionary_system.mutation_operations.atomic_substitution import atomic_substitution
+from src.evolutionary_system.mutation_operations.atomic_mutations.atomic_substitution import AtomicSubstitutionMutation
 from src.evolutionary_system.crossover_operations.graph_based_crossover import graph_based_crossover
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
 from src.evolutionary_system.selection_operations.stochastic_universal_sampling import stochastic_universal_sampling
@@ -38,7 +37,7 @@ def start_ga():
 
     # Assign user selected methods and functions
     selection_method  = globals()[config["selection_method"]]
-    mutation_methods = [globals()[method] for method in config["mutation_methods"]]
+    mutation_methods = [method for method in config["mutation_methods"]]
     crossover_methods = [globals()[method] for method in config["crossover_methods"]]
 
     

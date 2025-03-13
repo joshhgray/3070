@@ -1,7 +1,8 @@
 from src.evolutionary_system.fitness_operations.aggregate_fitness import aggregate_fitness
 from src.evolutionary_system.fitness_operations.calculate_population_diversity import calculate_population_diversity
 from src.evolutionary_system.selection_operations.rank_based_selection import rank_based_selection
-from src.evolutionary_system.mutation_operations.hydroxylate_mutate import hydroxylate_mutate
+from src.evolutionary_system.mutation_operations.functional_group_mutation import FunctionalGroupMutation
+from src.evolutionary_system.mutation_operations.atomic_mutations.atomic_substitution import AtomicSubstitutionMutation
 from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 from src.evolutionary_system.utils.ga_state import (
     update_latest_diversity, update_latest_population, is_ga_active, 
@@ -26,10 +27,22 @@ ga_active = False
 # Probabilities of any of the mutations to occur in current generational cycle
 # TODO - eventually get this to front-end 
 MUTATION_PROBABILITIES = {
-    "hydroxylate_mutate": 0.2,
-    "methylate_mutate": 0.1,
+    "hydroxylation": 0.2,
+    "methylation": 0.1,
+    "amination": 0.15,
+    "fluorination": 0.1,
+    "carboxylation": 0.1,
     "atomic_substitution": 0.4,
 }
+
+# initialize mutation operations
+MUTATION_OPERATIONS = {
+    "methylation": FunctionalGroupMutation("methylation"),
+    "amination": FunctionalGroupMutation("amination"),
+    "fluorination": FunctionalGroupMutation("fluorination"),
+    "carboxylation": FunctionalGroupMutation("carboxylation"),
+    "atomic_substitution": AtomicSubstitutionMutation(),
+    }
 
 def apply_mutation(working_population, mutation_methods, parents):
     """
@@ -43,6 +56,7 @@ def apply_mutation(working_population, mutation_methods, parents):
     """
     mutation_attempts = 0
     mutation_successes = 0
+
     for parent in parents:
         # Extract mol graph from parent
         # important to add backup logic bc it is easy to
@@ -54,19 +68,23 @@ def apply_mutation(working_population, mutation_methods, parents):
         
         # Convert mol to rw_mol with nx_graph_to_mol
         rw_mol = nx_graph_to_mol(mol_graph, return_rwmol=True)
-
         if rw_mol is None:
             continue
 
-        # mutated_mol must be initialized pre-loop in the event a molecule gets no mutation
+        # mutated_mol must be initialized pre-loop in the event a molecule gets no mutations applied
         mutated_mol = rw_mol
 
         # Apply each mutation method in sequence
         for mutation_method in mutation_methods:
-            # Retrieve mutation method by name (string)
-            if random.random() < MUTATION_PROBABILITIES[mutation_method.__name__]:
+            if mutation_method not in MUTATION_OPERATIONS:
+                continue
+
+            mutation_operation = MUTATION_OPERATIONS[mutation_method]
+            mutation_probability = MUTATION_PROBABILITIES[mutation_method]
+
+            if random.random() < mutation_probability:
                 mutation_attempts += 1
-                mutated_mol = mutation_method(rw_mol)
+                mutated_mol = mutation_operation.apply(mutated_mol)
 
                 # Revert to original if mutation or sanitization fails
                 if mutated_mol is None or mutated_mol.GetNumAtoms() == 0:
@@ -79,6 +97,7 @@ def apply_mutation(working_population, mutation_methods, parents):
                 # Check if mutation was successful
                 mutated_smiles = Chem.MolToSmiles(mutated_mol)
                 original_smiles = Chem.MolToSmiles(rw_mol)
+
                 if mutated_smiles != original_smiles:
                     mutation_successes += 1
         
@@ -128,8 +147,11 @@ def apply_crossover(working_population, crossover_methods, parents):
         # Apply Crossover technique
         # TODO - currently just doing a random choice, want to make this probabalistic like
         #        mutation, gotta figure a few things out first tho. (also there is only 1 x-over op rn)
-        crossover_method = random.choice(crossover_methods)
-        offspring_graph = crossover_method(mol_graph1, mol_graph2)
+        if len(crossover_methods) >= 1:
+            crossover_method = random.choice(crossover_methods)
+            offspring_graph = crossover_method(mol_graph1, mol_graph2)
+        else: # If no crossover methods are selected
+            return crossover_attempts, crossover_successes
 
         # Skip if offspring is invalid
         if not offspring_graph:
@@ -143,7 +165,6 @@ def apply_crossover(working_population, crossover_methods, parents):
             Chem.SanitizeMol(offspring_mol)
         except Exception:
             continue
-
         
         crossover_successes += 1
         # Store new molecule in population
@@ -184,6 +205,8 @@ def run_ga(initial_population, population_size, num_generations,
     # Initialize
     diversity_log = []
     current_generation_number = 0
+    mutation_rate = 0
+    crossover_rate = 0
     current_population_size = population_size
     working_population = initial_population
 
@@ -226,7 +249,7 @@ def run_ga(initial_population, population_size, num_generations,
         if crossover_attempts > 0:
             crossover_rate = (crossover_successess / crossover_attempts * 100)
 
-        # Log to global state TODO - can probably condense these
+        # Log to global state 
         update_mutation_log(mutation_rate)
         update_crossover_log(crossover_rate)
 

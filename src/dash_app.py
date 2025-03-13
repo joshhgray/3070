@@ -128,10 +128,14 @@ ga_operators_panel = dbc.Card([
             dcc.Dropdown(
                 id="mutation-methods",
                 options=[
-                    {"label": "Hydroxylate", "value": "hydroxylate_mutate"},
-                    {"label": "Atomic Substitution", "value": "atomic_substitution"}
+                    {"label": "Hydroxylation", "value": "hydroxylation"},
+                    {"label": "Atomic Substitution", "value": "atomic_substitution"},
+                    {"label": "Methylation", "value": "methylation"},
+                    {"label": "Amination", "value": "amination"},
+                    {"label": "Fluorination", "value": "fluorination"},
+                    {"label": "Carboxylation", "value": "carboxylation"},
                 ],
-                value=["hydroxylate_mutate", "atomic_substitution"],
+                value=["hydroxylation", "atomic_substitution", "methylation"],
                 multi=True
             )
         ], className="mb-3"),
