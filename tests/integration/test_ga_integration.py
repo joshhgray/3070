@@ -1,5 +1,5 @@
 import pytest #type:ignore
-from src.evolutionary_system.ga import run_ga
+from archive.ga import run_ga
 from src.data_pipeline.make_population_graph import make_graph
 
 # TODO - break up into separate functions

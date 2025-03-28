@@ -1,12 +1,11 @@
 import os
 import pickle
 from src.data_pipeline.load_bgcs import load_bgc_jsons
-from src.data_pipeline.mol_to_graph import mol_to_graph
+from rdkit import Chem
 
 def save_bgcs(json_dir, output_file):
     """
-    Loads BGC JSONs, Filter out BGCs with missing critical data,
-    Add molecular graph representation to each remaining compound,
+    Loads BGC JSONs. Filter out BGCs with missing critical data.
     and save to pickle file.
 
     :param json_dir: json_dir of unprocessed BGC data in JSON format
@@ -17,15 +16,18 @@ def save_bgcs(json_dir, output_file):
     for bgc in bgc_data:
         for compound in bgc.get("compounds", []):
             smiles_str = compound.get("structure")
-            compound["mol_graph"] = mol_to_graph(smiles_str)
+            if smiles_str:
+                compound["mol"] = Chem.MolFromSmiles(smiles_str)
     
     filtered_bgc_data = [
         bgc for bgc in bgc_data
-        if all(c.get("mol_graph") is not None for c in bgc.get("compounds", []))
+        if any(c.get("mol") is not None for c in bgc.get("compounds", []))
     ]
 
     with open(output_file, "wb") as f:
         pickle.dump(filtered_bgc_data, f)
+    
+    print(f"Successfully loaded {len(filtered_bgc_data)} BGCs to the population pool.")
 
 if __name__ == "__main__":
     cd = os.path.dirname(os.path.abspath(__file__))

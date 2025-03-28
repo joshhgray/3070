@@ -1,0 +1,454 @@
+from src.evolutionary_system.fitness_operations.aggregate_fitness import aggregate_fitness
+from src.evolutionary_system.fitness_operations.calculate_population_diversity import calculate_population_diversity
+from src.evolutionary_system.selection_operations.rank_based_selection import RankBasedSelection
+from src.evolutionary_system.selection_operations.stochastic_universal_sampling import StochasticUniversalSampling
+from src.evolutionary_system.selection_operations.verhulst_population_control import verhulst_population_control
+from src.evolutionary_system.mutation_operations.bioisosteric_mutations import BioisostericMutation
+from src.evolutionary_system.mutation_operations.ring_mutation import RingMutation
+from src.evolutionary_system.mutation_operations.fragment_mutaiton import FragmentMutation
+from src.evolutionary_system.crossover_operations.max_common_substruct_crossover import MCSCrossover
+from src.evolutionary_system.mutation_operations.atomic_mutations.atomic_substitution import AtomicSubstitutionMutation
+from src.data_pipeline.make_population_graph import make_population_graph
+from src.evolutionary_system.utils.config_loader import load_config
+from src.evolutionary_system.utils.logger import log_metrics
+from src.evolutionary_system.utils.ga_state import (
+    update_latest_diversity, update_latest_population, is_ga_active, 
+    set_ga_active, update_latest_crossover_rates, update_latest_mutation_rates, 
+    update_crossover_log, update_mutation_log, update_current_population_size, 
+    update_current_generation_number, update_fitness_log, get_tuning_weights,
+    get_active_filters, get_mw_range, get_logp_range
+)
+from rdkit import Chem
+import pandas as pd
+import numpy as np
+import datetime
+import psutil
+import random
+import uuid
+import time
+import csv
+import os
+
+CROSSOVER_METHODS = {
+    "mcs_crossover": MCSCrossover(),
+}
+SELECTION_METHODS = {
+    "rank_based_selection": RankBasedSelection(),
+    "stochastic_universal_sampling": StochasticUniversalSampling(),
+}
+FITNESS_CONFIG = {
+    "tuning_weights": get_tuning_weights,
+    "active_filters": get_active_filters,
+    "mw_range": get_mw_range,
+    "logp_range": get_logp_range
+}
+
+class GeneticAlgorithm:
+    def __init__(self, config):
+        self.config = config
+        self.population_size = config["population_size"]
+        self.num_generations = config["num_generations"]
+        self.crossover_methods = config.get("crossover_methods")
+        self.elitism_weight = config.get("elitism_weight")
+        self.mutation_weights = config.get("mutation_weights")
+        self.selection_method = config.get("selection_method")
+        self.selection_cutoff = 50 # TODO
+        self.carrying_capacity = config["carrying_capacity"]
+        self.population_type = config["data_source"]
+        self.working_population = None
+        self.diversity_log = []
+        # Load fragment library and pass to Fragment Mutation function
+        self.fragment_library = self.load_fragment_library()
+        self.fragment_mutator = FragmentMutation(self.fragment_library)
+
+    def load_fragment_library(self):
+        """
+        # Loads the fragment library (CSV) and saves fragment's SMILES to a list.
+        """
+        cd = os.path.dirname(os.path.abspath(__file__))
+        lirbrary_path = os.path.join(cd, "../../bgc_fragment_library.csv")
+        df = pd.read_csv(lirbrary_path)
+
+        frag_list = []
+        for _, row in df.iterrows():
+            frag_smiles = row["fragment_smiles"]
+            frag_list.append(frag_smiles)
+        
+        return frag_list
+
+    def initialize_population(self):
+        """
+        # TODO
+        """
+        self.working_population = make_population_graph(self.population_size, self.population_type)
+        self.evaluate_initial_fitness()
+
+    def evaluate_initial_fitness(self):
+        """
+        # TODO
+        """
+        for node in self.working_population.nodes:
+            if self.working_population.nodes[node]["level"] == "Individual":
+                compounds = self.working_population.nodes[node].get("compounds")
+                mol = compounds[0].get("mol") if compounds else None
+                self.working_population.nodes[node]["raw_fitness"] = aggregate_fitness(mol)
+    
+    def apply_selection(self):
+        """
+        Applies the selected selection method to choose parents for reproduction, and assigning
+        corresponding parameters
+        """
+        selection_method = SELECTION_METHODS[self.selection_method]
+        if self.selection_method == "stochastic_universal_sampling":
+            parents = selection_method.select(self.working_population)
+        else:
+            parents = selection_method(self.working_population, self.selection_cutoff)
+
+        return parents
+
+    def select_mutation_type(self):
+        """
+        Given user probabilities of mutation functions, normalize, and then select one probabilistically.
+        """
+        mutation_probabilities = self.mutation_weights
+
+        # No mutation operations selected
+        if not mutation_probabilities:
+            return None
+        
+        # Normalize weights
+        sum_probs = sum(mutation_probabilities.values())
+        if sum_probs > 0:
+            normalized_weights = {key: val / sum_probs for key, val in mutation_probabilities.items()}
+        else:
+            return None
+
+        # Extract mutation types and probabilites
+        types = list(normalized_weights.keys())
+        probs = list(normalized_weights.values())
+
+        return random.choices(types, weights=probs, k=1)[0]
+
+    def apply_mutation_by_type(self, mol, mutation_type):
+        """
+        Applies user selected mutation type
+        """
+        # ATOMIC
+        if mutation_type == "atomic_substitution":
+            print("MUTATION: atomic")
+            return AtomicSubstitutionMutation().apply(mol)
+        # FUNCTIONAL
+        elif mutation_type == "functional_group":
+            print("MUTATION: fgm")
+            return BioisostericMutation().apply(mol)
+
+        # RING
+        elif mutation_type == "ring":
+            print("MUTATION: ring")
+            return RingMutation().apply(mol)
+
+        # FRAGMENT
+        elif mutation_type == "fragment":
+            print("MUTATION: frag")
+            return self.fragment_mutator.apply(mol)
+
+    def apply_mutation(self, parents):
+        """
+        Applies one of the selected mutations to the parent molecules.
+        Continusously tracks success rate of mutation operations.
+        """
+        mutation_attempts = 0
+        mutation_successes = 0
+
+        for parent in parents:
+            # Extract mol graph from parent
+            # Note: t is mportant to add backup logic becuase it is easy to 
+            # create invalid compounds trhought the getnic operations
+            compounds = self.working_population.nodes[parent].get("compounds")
+            mol = compounds[0].get("mol") if compounds else None
+
+            # Move on if mol is invalid
+            if mol is None:
+                continue
+            
+            # Probabilstically select and apply mutation by type
+            mutation_type = self.select_mutation_type()
+            mutation_attempts += 1
+
+            try:
+                # Get an editable version of the mol and apply selected mutation type
+                rw_mol = Chem.RWMol(mol)
+                mutated_mol = self.apply_mutation_by_type(rw_mol, mutation_type)
+
+                if mutated_mol and mutated_mol.GetNumAtoms() > 0:
+                    # Check if molecule is framented and only keep largest if so.
+                    frags = Chem.GetMolFrags(mutated_mol, asMols=True, sanitizeFrags=True)
+
+                    if len(frags) > 1:
+                        mutated_mol = max(frags, key=lambda mol: mol.GetNumAtoms())
+
+                    Chem.SanitizeMol(mutated_mol)
+                    mutated_smiles = Chem.MolToSmiles(mutated_mol)
+
+                    if mutated_mol:
+                        new_id = f"offspring_{uuid.uuid4().hex[:10]}"
+                        self.working_population.add_node(new_id, level="Individual", compounds=[])
+                        self.working_population.nodes[new_id]["compounds"] = [{"structure": mutated_smiles, "mol": mutated_mol}]
+                        self.working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(mutated_mol)
+                        mutation_successes += 1
+
+            except Exception as e:
+                return mutation_attempts, mutation_successes
+            
+        return mutation_attempts, mutation_successes
+
+    def apply_crossover(self, parents):
+        """
+        Pairs parents together and iteratively attempts to perform genetic crossover, creating new
+        offspring. If validation of molecule is successful, the offspring is added to the population.
+        Continuosly tracks success rate of crossover mutations.
+        """
+        crossover_attempts = 0
+        crossover_successes = 0
+
+        # TODO - modify once grouping is properly implemeted
+        random.shuffle(parents)
+        # Create pairs of parents
+        parent_pairs = [(parents[i], parents[i+1]) for i in range(0, len(parents) - 1, 2)]
+
+
+        for parent1, parent2 in parent_pairs:
+            # Extract each parent
+            # TODO - empty list fallback ensures graceful failure, could avoid this by 
+            #        doing a check after every generation to purge mols with missing data.
+            #        * see below todo. Patching this together to get it running for now.
+            mol_1_compounds = self.working_population.nodes[parent1].get("compounds", [])
+            mol_2_compounds = self.working_population.nodes[parent2].get("compounds", [])
+
+            # TODO - * see above todo, remove once implemented. 
+            if not mol_1_compounds or not mol_2_compounds:
+                continue
+
+            mol_1 = mol_1_compounds[0].get("mol") if mol_1_compounds else None
+            mol_2 = mol_2_compounds[0].get("mol") if mol_2_compounds else None
+
+            crossover_attempts += 1
+            
+            # Currently there is only one crossover method, but this will later be a probabilistic
+            # choice once others are implemented - similar to mutation is now.
+            if self.crossover_methods:
+                crossover_method = random.choice(self.crossover_methods)
+            else:
+                continue
+
+            crossover_function = CROSSOVER_METHODS.get(crossover_method)
+
+            if crossover_function:
+                offspring = crossover_function.apply(mol_1, mol_2)
+                if not offspring:
+                    continue
+            else:
+                return crossover_attempts, crossover_successes
+            
+            # Confirm chemical validity, skip if offspring is invalid
+            try:
+                Chem.SanitizeMol(offspring)
+                offspring_smiles = Chem.MolToSmiles(offspring)
+
+                # Store new molecule in population
+                new_id = f"offspring_{uuid.uuid4().hex[:10]}"
+                self.working_population.add_node(new_id, level="Individual", compounds=[])
+                self.working_population.nodes[new_id]["compounds"] = [{"structure": offspring_smiles, "mol": offspring}]
+                self.working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(offspring)
+
+                crossover_successes += 1
+            except Exception as e:
+                #print(f"Error adding new mol to population graph after applying crossover: {e}")
+                continue
+
+        return crossover_attempts, crossover_successes
+
+    def prune_population(self):
+        """
+        Population control logic - probabilistic pruning of low-fitness individuals
+        """
+        # Get all non-elite individuals
+        individuals = [node for node in self.working_population.nodes 
+                if self.working_population.nodes[node]["level"] == "Individual"
+                and not self.working_population.nodes[node].get("elite", False)]
+
+        # Calculate survival probabilities using Verhlust-inspired model - capped at carrying capacity.
+        survival_probability = verhulst_population_control(len(individuals), self.carrying_capacity)
+        fitness_values = np.array([self.working_population.nodes[node]["raw_fitness"] for node in individuals])
+        normalized_fit_values = fitness_values / fitness_values.sum()
+
+        # Calculate probabilities of removal
+        removal_probabilities = (1 - normalized_fit_values) * (1 - survival_probability)
+
+        individuals_to_remove = []
+        for idx, node in enumerate(individuals):
+            if np.random.rand() < removal_probabilities[idx]:
+                individuals_to_remove.append(node)
+
+        # Prevent over-pruning and convergence 
+        num_keepers = len(individuals) - len(individuals_to_remove)
+        min_population_size = int(0.5 * self.population_size)
+        if num_keepers < min_population_size:
+            # sort those staged for purge by probability of survival (low-to-high)
+            sorted_probs = sorted(zip(removal_probabilities, individuals), key=lambda prob: prob[0], reverse=True)
+            # Remove at most until population size reaches minimum bound.
+            individuals_to_remove = [node for _, node in sorted_probs[:len(individuals) - min_population_size]]
+
+        # Remove selected nodes from population graph
+        self.working_population.remove_nodes_from(individuals_to_remove)
+
+    def run_ga(self):
+        # Execute the main generational loop of the GA
+        print("GA: Evaluating Initial Fitness.")
+        self.evaluate_initial_fitness()
+
+        # Generational Loop
+        for generation in range(self.num_generations):
+            # Confirm operational status
+            if not is_ga_active():
+                break
+
+            update_current_generation_number(generation + 1)
+
+            """
+            Elitism
+            """
+            individuals = [node for node in self.working_population.nodes if self.working_population.nodes[node]["level"] == "Individual"]
+            ranked = sorted(individuals, key=lambda node: self.working_population.nodes[node]["raw_fitness"], reverse=True)
+            num_elites = int(len(ranked) * (self.elitism_weight / 100))
+
+            # Remove previous generation's elites
+            for node in self.working_population.nodes:
+                if self.working_population.nodes[node]["level"] == "Individual":
+                    self.working_population.nodes[node]["elite"] = False
+            
+            # Assign new elites
+            elites = ranked[:num_elites]
+            for node in elites:
+                self.working_population.nodes[node]["elite"] = True
+
+            """
+            Genetic Operations
+            """
+            # Selection
+            print("DEBUG: Selecting Parents")
+            parents = self.apply_selection()
+
+            print("DEBUG: Applying Mutation")
+            # Mutation
+            mutation_attempts, mutation_successes = self.apply_mutation(parents)
+
+            print("DEBUG: Applying Crossover")
+            # Crossover
+            crossover_attempts, crossover_successes = self.apply_crossover(parents)
+
+            print("DEBUG: Pruning Population")
+            # Population Control
+            self.prune_population()
+            
+            """
+            Logging
+            """
+            print("DEBUG: Logging Succes Rates")
+            # Log sucess rates
+            if mutation_attempts > 0:
+                mutation_rate = (mutation_successes / mutation_attempts) * 100
+                update_mutation_log(mutation_rate)
+                update_latest_mutation_rates(mutation_rate)
+
+            if crossover_attempts > 0:
+                crossover_rate = (crossover_successes / crossover_attempts) * 100
+                update_crossover_log(crossover_rate)
+                update_latest_crossover_rates(crossover_rate)
+
+            print("DEBUG: Updating Global States")
+            # Update global states
+            population_size = sum(1 for node in self.working_population.nodes 
+                                  if self.working_population.nodes[node]["level"] == "Individual")
+            update_current_population_size(population_size)
+
+            # TODO - this just doubles the space of working_population - I should probably
+            #        just keep a global state of the top_n mols for the standings, rather than
+            #        saving the entire population to global state. Or keep for reproduciblity?
+            update_latest_population(self.working_population)
+
+            print("DEBUG: Updating Fitness Log")
+            # Extract min, mean, and max fitness values
+            individuals = [node for node in self.working_population.nodes 
+                    if self.working_population.nodes[node]["level"] == "Individual"]
+            fitness_values = [self.working_population.nodes[node]["raw_fitness"] 
+                              for node in individuals]
+            if fitness_values:
+                min_fitness = min(fitness_values)
+                mean_fitness = sum(fitness_values) / len(fitness_values)
+                max_fitness = max(fitness_values)
+                update_fitness_log((min_fitness, mean_fitness, max_fitness))
+
+            print("DEBUG: Updating Diversity Log")
+            # Calculate and log diversity metrics
+            diversity = calculate_population_diversity(self.working_population)
+            self.diversity_log.append(diversity)
+            self.working_population.nodes["Population"]["diversity"] = diversity
+            update_latest_diversity(self.diversity_log)
+
+
+        set_ga_active(False)
+        return self.working_population, self.diversity_log
+    
+    def start_ga(self):
+        """
+        Starts execution of GA: initialize, run, log.
+        """
+        # Generate primary key run IDs
+        run_id = str(uuid.uuid4())
+        start_time = time.time()
+        timestamp = datetime.datetime.now().isoformat()
+
+        # Start tracking CPU usage
+        process = psutil.Process()
+        process.cpu_percent(interval=None)
+
+        # Initialize population and start the GA
+        self.initialize_population()
+        print("GA: Starting GA...")
+        final_population, diversity_log = self.run_ga()
+
+        # Benchmarking and Logging
+        print("GA: GA complete, logging results")
+        end_time = time.time()
+        runtime = end_time - start_time
+        # using oneshot here because I plan on running additional processing benchmarks
+        with process.oneshot():
+            cpu_usage = process.cpu_percent(interval=None)
+            # TODO - implement continuous memory tracking
+
+        # Collect fitness results TODO - append other fitness results
+        fitness_results = {'diversity': diversity_log}
+
+        log_metrics(run_id,
+                    timestamp,
+                    runtime=runtime,
+                    hyperparameters=self.config,
+                    fitness_results=fitness_results,
+                    validation_results={}, # TODO - handle val res
+                    mem_usage=0, # TODO - handle mem calc
+                    cpu_usage=cpu_usage,
+                    population_type=self.population_type,
+                    fitness_config=FITNESS_CONFIG
+                    )
+        print("GA: Simulation complete.")
+
+if __name__ == "__main__":
+    config = load_config()
+    set_ga_active(True)
+    ga = GeneticAlgorithm(config)
+    final_population, diversity_log = ga.start()
+
+
+
+

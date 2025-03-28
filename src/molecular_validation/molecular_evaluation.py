@@ -1,4 +1,3 @@
-from guacamol.utils.chemistry import smiles_to_rdkit_mol
 from guacamol.distribution_learning_benchmark import ValidityBenchmark, UniquenessBenchmark, NoveltyBenchmark, KLDivBenchmark
 from moses.metrics.SA_Score.sascorer import calculateScore
 from rdkit.Chem import rdMolDescriptors, Crippen
@@ -25,7 +24,7 @@ def evaluate_mols(population, top_n=10, reference_set=None):
     Evaluates top_n molecules from the population using GuacaMol.
 
     :param population: NetworkX Di.Graph of population.
-    :param top_n: Number of top molecules to evaluate.
+    :param top_n: Number of molecules to evaluate.
     :param reference_set: Set of reference molecules fo  calculating KL/FCD/Novelty of generated mols.
     :return: Pandas DataFrame with evaluation results.
     """
@@ -49,7 +48,7 @@ def evaluate_mols(population, top_n=10, reference_set=None):
             if not smiles:
                 continue
 
-            mol = smiles_to_rdkit_mol(smiles)
+            mol = compounds[0]["mol"]
             ga_output_set.append(smiles)
 
             if mol:
@@ -98,9 +97,7 @@ def evaluate_mols(population, top_n=10, reference_set=None):
         df = df[cols]
 
         return df
-
-
     
     except Exception as e:
-        print("Error during GuacaMol Evaluation: {e}")
+        print("Error during Molecular Evaluation: {e}")
         return None

@@ -8,8 +8,20 @@ latest_mutation_success_rates = 0
 latest_crossover_success_rates = 0
 current_population_size = 0
 current_generation_number = 0
-mol_weight_threshold = 500
-selected_fitness_functions = []
+mol_weight_threshold = 500 # TODO - move to config
+selected_fitness_functions = [] # TODO - can be infered from config rather than in here
+fitness_history_log = []
+active_filters = []
+tuning_weights = {}
+mw_range = [250, 450]
+logp_range = [0.5, 5.0]
+
+MUTATION_PROBABILITIES = {
+    "atomic_substitution": 0.25,
+    "functional_group": 0.25,
+    "ring": 0.25,
+    "fragment": 0.25,
+}
 
 def set_ga_active(value):
     global ga_active
@@ -88,3 +100,50 @@ def update_selected_fitness_functions(functions):
 
 def get_selected_fitness_functions():
     return selected_fitness_functions
+
+def update_mutation_probabilities(updated_probabilities):
+    global MUTATION_PROBABILITIES
+    MUTATION_PROBABILITIES = updated_probabilities
+
+def get_mutation_probabilities():
+    return MUTATION_PROBABILITIES
+
+def update_fitness_log(fitness_tuple):
+    global fitness_history_log
+    fitness_history_log.append(fitness_tuple)
+
+def get_fitness_history_log():
+    return fitness_history_log
+
+def update_active_filters(filters):
+    global active_filters
+    active_filters = filters
+
+def get_active_filters():
+    return active_filters
+
+def update_tuning_weights(weights):
+    global tuning_weights
+    tuning_weights = weights
+
+def get_tuning_weights():
+    return tuning_weights
+
+def update_mw_range(range):
+    global mw_range
+    mw_range=range
+
+def get_mw_range():
+    return mw_range
+
+def get_mw_target():
+    # Define target as mid point on range
+    low, high = get_mw_range()
+    return (low + high) / 2
+
+def update_logp_range(range):
+    global logp_range
+    logp_range=range
+
+def get_logp_range():
+    return logp_range

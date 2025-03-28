@@ -38,11 +38,11 @@ class AtomicSubstitutionMutation(Mutation):
 
         # Validate and sanitize
         mutated_mol = rw_mol.GetMol()
+
         try:
             Chem.SanitizeMol(mutated_mol)
-
         # Return original mol if substitution has failed
         except Exception as e:
             return original
-        
+    
         return mutated_mol

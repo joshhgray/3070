@@ -6,7 +6,6 @@ from unittest.mock import patch, MagicMock
 import tempfile
 from src.data_pipeline.load_bgcs import load_bgc_jsons
 from src.data_pipeline.save_bgcs import save_bgcs
-from src.data_pipeline.mol_to_graph import mol_to_graph
 
 class TestSaveBgcs(unittest.TestCase):
 

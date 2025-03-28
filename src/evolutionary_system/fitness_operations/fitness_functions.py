@@ -1,71 +1,69 @@
 from rdkit import Chem
 from rdkit.Chem import QED, Crippen, rdMolDescriptors, Lipinski
-from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 from moses.metrics.SA_Score.sascorer import calculateScore
 
-def calculate_qed(compound):
-    """
-    Calculate QED (Quantitative Estimate of Drug-likeness) score of a compound.
+# TODO - lots of repetition in here!
 
-    :param compound: NetworkX Graph Object representing molecular compound.
+def calculate_qed(mol):
+    """
+    Calculate QED (Quantitative Estimation of Drug-likeness) score of a compound.
+
+    :param mol: RDKit Mol Object.
     :returns: QED score of the given compound, 0 if error.
     """
     try:
-        mol = nx_graph_to_mol(compound)
-        Chem.SanitizeMol(mol)
         if mol: # Valid compound
+            Chem.SanitizeMol(mol)
             return QED.qed(mol)
         else:
-            #print(f"Invalid compound: {compound}.")
+            #print(f"Invalid mol: {mol}.")
             return 0.0
 
     except Exception as e:
         #print(f"Error calculating QED for {compound}: {e}")
         return 0.0
 
-def calculate_sa_score(compound):
+def calculate_sa_score(mol):
     """
     Calculates Synthetic Accessiblity (SA) score of given compound.
 
-    :param compound: NetworkX Graph object representing molecular compound.
+    :param mol: RDKit Mol Object.
     :returns: SA Score else 10.0 (maximum SA score - least likely to be synthesizable).
     """
     try:
-        mol = nx_graph_to_mol(compound)
         Chem.SanitizeMol(mol)
         return calculateScore(mol) if mol else 10.0
     except Exception as e:
         return 10.0
     
-def calculate_logp(compound):
+def calculate_logp(mol):
     """
-    Calculates LogP (partial coefficient) of given compound. TODO - remove ?
+    Calculates LogP (partial coefficient) of given compound. 
+    TODO - remove ? - since it's calculated in both ro5 and QED.
 
-    :param compound: NetworkX Graph object representing molecular compound.
+    :param mol: RDKit Mol Object.
     :returns: LogP score, 0 if error.
     """
     try:
-        mol = nx_graph_to_mol(compound)
         Chem.SanitizeMol(mol)
         return Crippen.MolLogP(mol) if mol else 0.0
     except Exception:
         return 0
     
-def calculate_molecular_weight(compound):
+def calculate_molecular_weight(mol):
     """
     Calculates Molecular Weight of given compound.
 
-    :param compound: NetworkX Graph object representing molecular compound.
+    :param mol: RDKit Mol Object.
     :returns: Molecular Weight, 0 if error.
     """
     try:
-        mol = nx_graph_to_mol(compound)
         Chem.SanitizeMol(mol)
         return rdMolDescriptors.CalcExactMolWt(mol) if mol else 0.0
     except Exception:
         return 0
     
-def lipinski_score(compound):
+def lipinski_score(mol):
     """
     Calculates a Lipinski Rule of Five score using RDKit built-in Lipinski module.
     The score is the normalized sum of rules broken
@@ -77,10 +75,9 @@ def lipinski_score(compound):
     Hydrogen Bond Acceptors (hba) <= 10
     Rotatable Bonds (rb) <= 10
 
-    :param compound: NetwrokX Graph object representing molecular compound.
+    :param mol: RDKit Mol Object.
     :returns: A normalized score (0-1)
     """
-    mol = nx_graph_to_mol(compound)
 
     if not mol:
         return 0.0

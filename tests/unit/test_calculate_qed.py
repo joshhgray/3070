@@ -4,6 +4,8 @@ import rdkit
 from rdkit import Chem
 from src.evolutionary_system.fitness_operations.fitness_functions import calculate_qed
 
+# TODO - outdated - UPDATE!
+
 class TestCalculateQED(unittest.TestCase):
     def setUp(self):
         # Build mock graph object

@@ -9,13 +9,15 @@ def log_metrics(run_id,
                 validation_results,
                 mem_usage,
                 cpu_usage,
+                population_type,
+                fitness_config
                 ):
     # connect to metrics log
     cd = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cd, "metrics_log.csv")
 
-    # Convert mutation methods to single string / Same for crossover
-    mutation_methods = ",".join([method for method in hyperparameters.get("mutation_methods")])
+    # Convert mutation methods to single string / Same for crossover TODO - remove?
+    #mutation_methods = ",".join([method for method in hyperparameters.get("mutation_methods")])
     # TODO - uncomment once more than 1 is implemented   
     #crossover_methods = ",".join(hyperparameters.get("crossover_methods"))
 
@@ -29,15 +31,17 @@ def log_metrics(run_id,
         "population_size": hyperparameters["population_size"],
         "num_generations": hyperparameters["num_generations"],
         "carrying_capacity": hyperparameters["carrying_capacity"],
-        "mutation_method": mutation_methods,
+        #"mutation_method": mutation_methods,
         "crossover_methods": hyperparameters["crossover_methods"],
         "selection_method": hyperparameters["selection_method"],
-        #"num_elite_individuals": hyperparameters["num_elite_individuals"],
+        "elitism_weight": hyperparameters["elitism_weight"],
         #"num_elite_groups": hyperparameters["num_elite_groups"],
         #"num_threads": hyperparameters["num_threads"],
         "fitness_results": fitness_results,
         # Write out performance metrics
-        "cpu_usage": cpu_usage
+        "cpu_usage": cpu_usage,
+        "population_type": population_type,
+        "fitness_config": fitness_config
     }
 
     file_exists = os.path.exists(file_path)

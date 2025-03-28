@@ -8,22 +8,21 @@ import yaml
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from .controller import start_ga
+from src.evolutionary_system.GeneticAlgorithm import GeneticAlgorithm
+from src.evolutionary_system.utils.config_loader import load_config
 from src.evolutionary_system.utils.ga_state import (
     set_ga_active, is_ga_active, get_latest_diversity, get_latest_population, 
     get_latest_crossover_rates, get_latest_mutation_rates, get_crossover_log, 
     get_mutation_log, get_current_generation_number, get_current_population_size,
-    get_selected_fitness_functions, update_selected_fitness_functions, get_mol_weight_threshold,
-    update_mol_weight_threshold)
+    get_selected_fitness_functions, update_selected_fitness_functions, update_mutation_probabilities, 
+    get_fitness_history_log, update_active_filters, update_mw_range, update_logp_range, update_tuning_weights)
 from src.molecular_validation.molecular_evaluation import evaluate_mols
 from src.evolutionary_system.utils.ga_state import get_latest_population
-from src.evolutionary_system.utils.nx_graph_to_mol import nx_graph_to_mol
 from threading import Thread
 from rdkit import Chem
 from rdkit.Chem import Draw
 from io import BytesIO
 import base64
-from src.data_pipeline.mol_to_graph import mol_to_graph
 
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY], suppress_callback_exceptions=True)
@@ -63,8 +62,8 @@ general_config_panel = dbc.Card([
         dbc.Row([
             dbc.Col([
                 dbc.Label("Population Size"),
-                # Max population set to 2000 currently due to size of data present
-                dcc.Input(id="pop-size", type="number", value=1000, min=10, max=2000,
+                # Max population artificial cap at 100k
+                dcc.Input(id="pop-size", type="number", value=1000, min=10, max=100000,
                         style={
                         "width": "110px",
                         "textAlign": "center",
@@ -77,8 +76,8 @@ general_config_panel = dbc.Card([
             ]),
             dbc.Col([
                 dbc.Label("Generations"),
-                # Artificial cap of 9000 generations - this should be bypassable in advanced settings
-                dcc.Input(id="num-gen", type="number", value=1000, min=1, max=9000,
+                # Artificial cap of 24000 generations
+                dcc.Input(id="num-gen", type="number", value=1000, min=1, max=24000,
                         style={
                             "width": "110px",
                             "textAlign": "center",
@@ -91,7 +90,7 @@ general_config_panel = dbc.Card([
             ]),
             dbc.Col([
                 dbc.Label("Carrying Capacity"),
-                dcc.Input(id="carrying-capacity", type="number", value=2000, min=10, max=5000,
+                dcc.Input(id="carrying-capacity", type="number", value=2000, min=10, max=100000,
                         style={
                             "width": "110px",
                             "textAlign": "center",
@@ -106,13 +105,115 @@ general_config_panel = dbc.Card([
     ])
 ], className="mb-3")
 
-# Genetic Algorithm Operators Panel
-ga_operators_panel = dbc.Card([
-    dbc.CardHeader("Genetic Algorithm Operators"),
+# Dataset Toggle Selection Panel
+dataset_toggle_panel = dbc.Card([
+    dbc.CardHeader("Data Source"),
     dbc.CardBody([
-        # SELECTION METHOD SELECTION
+        dbc.Row([
+            dbc.RadioItems(
+                id="data-toggle",
+                options=[
+                    {"label": "Precompiled BGC Dataset", "value": "bgc"},
+                    {"label": "Custom SMILES Dataset", "value": "smiles"},
+                ],
+                value='bgc'
+            )
+        ])
+    ])
+], className="mb-3")
+
+# Fitness Function Panel
+fitness_panel = dbc.Card([
+    dbc.CardHeader("Fitness Function"),
+    dbc.CardBody([
+        html.P("Tuning: mean of selected.", style={"color": "grey"}),
+        html.P("Filters: hard exclusion.", style={"color": "grey"}),
+        dbc.Checklist(
+            options=[{"label": "Advanced Mode", "value": "advanced"}],
+            value=[],
+            id="fitness-advanced-toggle",
+            inline=True,
+            style={"marginBottom": "10px"}
+        ),
+        dbc.Collapse(
+            dbc.Checklist(
+                id="fitness-function-selection",
+                options=[
+                    {"label": "QED", "value": "qed"},
+                    {"label": "SA score", "value": "sa"},
+                    #{"label": "Lipinski Score (Ro5)", "value": "ro5"},
+                ],
+                value=get_selected_fitness_functions(),
+                inline=True,
+            ),
+            id="basic-fitness-collapse",
+            is_open=True
+        ),
+        dbc.Collapse([
+            # TUNING WEIGHTS
+            html.H6("Tuning Weights", className="mt-3"),
+
+            # QED
+            html.Label("QED"),
+            dcc.Slider(id="qed-tuning", min=0, max=1, value=0.5),
+
+            # Synthetic Accessibility
+            html.Label("Synthetic Accessibility (SA)"),
+            dcc.Slider(id="sa-tuning", min=0, max=1, value=0.5),
+
+            # Molecular Weight
+            html.Label("Molecular Weight"),
+            dcc.Slider(id="mw-tuning", min=0, max=1, value=0.5),
+            html.Br(),
+
+            # FILTER SETTINGS
+            html.H6("Filter Settings"),
+
+            # Molecular Weight Filter
+            html.Label("Molecular Weight Range Filter"),
+            dbc.InputGroup([
+                dbc.InputGroupText("Min"),
+                dbc.Input(id="mw-filter-min", type="number", value=250),
+                dbc.InputGroupText("Max"),
+                dbc.Input(id="mw-filter-max", type="number", value=500)
+            ]),
+
+            # LogP Filter
+            html.Label("LogP Range Filter"),
+            dbc.InputGroup([
+                dbc.InputGroupText("Min"),
+                dbc.Input(id="logp-filter-min", type="number", value=-2),
+                dbc.InputGroupText("Max"),
+                dbc.Input(id="logp-filter-max", type="number", value=7)
+            ]),
+
+            # Lipinski Ro5 Filter
+            dbc.Checklist(
+                id="filter-selection",
+                options=[
+                    {"label": "Lipinski Rule of Five", "value": "ro5"},
+                ],
+                value=["ro5"]
+            )
+
+        ], id="advanced-fitness-collapse", is_open=False),
+
+        # ELITISM WEIGHT
+        html.Br(),
         html.Div([
-            dbc.Label("Selection Methods"),
+            html.Label("Elitism Weight"),
+            dcc.Slider(id="elitism-weight", min=0, max=5, step=1, value=1,
+                       marks={0: "0%", 1: "1%", 2: "2%", 3: "3%", 4: "4%", 5: "5%"}),
+        ]),
+        
+    ])
+], className="mb-3")
+
+# Selection Choice
+selection_panel = dbc.Card([
+    dbc.CardHeader("Selection Method"),
+    dbc.CardBody([
+        html.Div([
             dcc.Dropdown(
                 id="selection-method",
                 options=[
@@ -122,72 +223,54 @@ ga_operators_panel = dbc.Card([
                 value="stochastic_universal_sampling"
             )
         ], className="mb-3"),
+    ])
+], className="mb-3")
+
+# Mutation Choices and Weight Sliders
+mutation_panel = dbc.Card([
+    dcc.Store(id="mutation-weights-store"),
+    dbc.CardHeader("Mutation Type Weights"),
+    dbc.CardBody([
         # MUTATION METHOD SELECTION
         html.Div([
-            dbc.Label("Mutation Methods"),
-            dcc.Dropdown(
-                id="mutation-methods",
-                options=[
-                    {"label": "Hydroxylation", "value": "hydroxylation"},
-                    {"label": "Atomic Substitution", "value": "atomic_substitution"},
-                    {"label": "Methylation", "value": "methylation"},
-                    {"label": "Amination", "value": "amination"},
-                    {"label": "Fluorination", "value": "fluorination"},
-                    {"label": "Carboxylation", "value": "carboxylation"},
-                ],
-                value=["hydroxylation", "atomic_substitution", "methylation"],
-                multi=True
-            )
-        ], className="mb-3"),
+            dbc.CardBody([
+                html.Label("Atomic Substitution"),
+                dcc.Slider(id="atomic-input", min=0, max=1, step=0.01, value=0.25,
+                           marks={0: "0", 0.25: "0.25", 0.5: "0.5", 0.75: "0.75", 1: "1"}),
+
+                html.Label("Functional Group Mutation"),
+                dcc.Slider(id="functional-group-input", min=0, max=1, step=0.01, value=0.25,
+                           marks={0: "0", 0.25: "0.25", 0.5: "0.5", 0.75: "0.75", 1: "1"}),
+
+                html.Label("Ring Mutation"),
+                dcc.Slider(id="ring-input", min=0, max=1, step=0.01, value=0.0,
+                           marks={0: "0", 0.25: "0.25", 0.5: "0.5", 0.75: "0.75", 1: "1"}),
+
+                html.Label("Fragment Mutation"),
+                dcc.Slider(id="fragment-input", min=0, max=1, step=0.01, value=0.0,
+                           marks={0: "0", 0.25: "0.25", 0.5: "0.5", 0.75: "0.75", 1: "1"}),
+            ])
+            ]),
+        ]),
+], className="mb-3")
+
+# Crossover Choices
+crossover_panel = dbc.Card([
+    dbc.CardHeader("Crossover Method(s)"),
+    dbc.CardBody([
         # CROSSOVER METHOD SELECTION
         html.Div([
-            dbc.Label("Crossover Methods"),
             dcc.Dropdown(
                 id="crossover-methods",
                 options=[
-                    {"label": "Graph Based", "value": "graph_based_crossover"},
+                    {"label": "MCS Crossover", "value": "mcs_crossover"},
+                    #{"label": "Graph Based", "value": "graph_based_crossover"},
                     #{"label": "HGT", "value": "hybrid_gene_crossover"}
                 ],
-                value=["graph_based_crossover"], 
+                value=["mcs_crossover"], 
                 multi=True 
             )
-        ], className="mb-3"),
-        # FITNESS WEIGHT SELECTION
-        # html.Div([
-        #     dbc.Label("Fitness Function"),
-        #     dcc.Dropdown(
-        #         id="fitness-functions",
-        #         options=[
-        #             {"label": "QED", "value": "calculate_qed"},
-        #             #{"label": "Ro5", "value": "rule_of_five"}
-        #         ],
-        #         value=["calculate_qed"],
-        #         multi=True
-        #     )
-        # ], className="mb-3")
-        dbc.CardHeader("Select Fitness Functions"),
-        dbc.CardBody([
-            dbc.Checklist(
-                id="fitness-function-selection",
-                options=[
-                    {"label": "QED", "value": "qed"},
-                    {"label": "SA Score", "value": "sa"},
-                    {"label": "Lipinski Score (Ro5)", "value": "ro5"}
-                ],
-                value=get_selected_fitness_functions(),
-                inline=True
-            ),
-            dbc.Row([
-                html.Label("MW Threshold (Da)"),
-                dcc.Slider(
-                    id="mw-threshold-slider",
-                    min=200, max=1500,
-                    value=get_mol_weight_threshold(),
-                    marks={250: "250", 500: "500", 750: "750", 1000: "1000", 1250: "1250", 1500: "1500"}
-                )
-            ])
         ]),
-        
     ])
 ], className="mb-3")
 
@@ -269,32 +352,34 @@ live_tracking_panel = dbc.Card([
                         ], style={"marginBottom": "10px", "backgroundColor": "#668cff"})
                     ])
                 ]),
-            ]), width=3),
+            ]), width=4),
             # LIVE TRACKING SLOT 2 - Population Diversity Graph
-            dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
+            dbc.Col(dcc.Graph(id="diversity-graph", style={"height": "100%", "width": "100%", "padding": "0", "margin": "0"}), width=4),
             # LIVE TRACKING SLOT 3
-            dbc.Col(dcc.Graph(id="graph-3", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3),
-            # LIVE TRACKING SLOT 4
-            dbc.Col(dcc.Graph(id="graph-4", style={"height": "375px", "width": "100%", "height": "375px", "padding": "0", "margin": "0"}), width=3)
+            dbc.Col(dcc.Graph(id="graph-3", style={"height": "100%", "width": "100%", "padding": "0", "margin": "0"}), width=4),
         ])
     ]),
-    ],
-    className="mb-3"
-)
+],className="mb-3")
 
 # Results Panel
 results_panel = dbc.Card([
     dbc.CardHeader("Top 10 Compounds"),
-    dbc.CardBody(id="results-panel-body", children=[
-        html.P("Standings will be updated here.")
-    ])
+    dbc.CardBody(
+        id="results-panel-body", 
+        children=[html.P("Standings will be updated here.")]
+    )
 ], className="mb-3")
 
 molecule_image_section = dbc.Card([
     dbc.CardHeader("Molecular Structure"),
     dbc.CardBody([
-        html.Img(id="molecule-image", style={"width": "300px", "height": "300px"}),
-        html.P(id="molecule-name")
+        html.Div(
+            html.Img(id="molecule-image", style={"width": "300px", "height": "300px"}),
+            id="molecule-image-container",
+            # centers the image
+            style={"textAlign": "center"}
+        ),
+        html.P(id="molecule-name", style={"textAlign": "center"})
     ])
 ], className="mb-3")
 
@@ -304,26 +389,33 @@ app.layout = dbc.Container([
     dcc.Store(id="current-config", data=load_hyperparameters()),
     dcc.Store(id="ga-running", data=False),
     # Interval to update live tracking every 1 second also used for checking ga status
-    dcc.Interval(
-        id="interval-component",
-        interval=1000,
-        n_intervals=0
-    ),
+    dcc.Interval(id="interval-component",interval=1000,n_intervals=0),
     header,
     dbc.Row([
-        # Left column for configuration panels
+        # Left columns for configuration panels
         dbc.Col([
+            # Left config panel
             general_config_panel,
-            ga_operators_panel,
-            control_buttons_panel
+            dataset_toggle_panel,
+            fitness_panel,
         ], width=2),
         dbc.Col([
-            dbc.Row(dbc.Col(live_tracking_panel), className="mb-3"),
+            # Right config panel
+            selection_panel,
+            mutation_panel,
+            crossover_panel,
+            control_buttons_panel,
+        ], width=2),
+        # Right side
+        dbc.Col([
             dbc.Row([
-                dbc.Col(results_panel, width=9),
-                dbc.Col(molecule_image_section, width=3)
+                dbc.Col(live_tracking_panel)
+            ]),
+            dbc.Row([
+                dbc.Col(molecule_image_section, width=4),
+                dbc.Col(results_panel, width=8),
             ])
-        ], width=10)
+        ], width=8)
     ])
 ], fluid=True)
 
@@ -333,23 +425,28 @@ app.layout = dbc.Container([
         Input("pop-size", "value"),
         Input("num-gen", "value"),
         Input("carrying-capacity", "value"),
+        Input("mutation-weights-store", "data"),
         Input("selection-method", "value"),
-        Input("mutation-methods", "value"),
         Input("crossover-methods", "value"),
+        Input("elitism-weight", "value"),
+        Input("data-toggle", "value"),
     ],
     State("current-config", "data")
 )
-def update_config(population_size, num_generations, carrying_capacity, selection_method,
-                  mutation_methods, crossover_methods, current_config):
+def update_config(population_size, num_generations, carrying_capacity, mutation_weights,
+                  selection_method, crossover_methods, elitism_weight, data_source, 
+                  current_config):
     # Slider updates result in the config converting to a string
     # So, it must be manually converted back to dict here
     current_config = {}
     current_config["population_size"] = population_size
     current_config["num_generations"] = num_generations
     current_config["carrying_capacity"] = carrying_capacity
+    current_config["mutation_weights"] = mutation_weights
     current_config["selection_method"] = selection_method
-    current_config["mutation_methods"] = mutation_methods
     current_config["crossover_methods"] = crossover_methods
+    current_config["elitism_weight"] = elitism_weight
+    current_config["data_source"] = data_source
 
     save_hyperparameters(current_config)
     return "Configuration Updated."
@@ -362,15 +459,19 @@ def update_config(population_size, num_generations, carrying_capacity, selection
      prevent_initial_call=True
 )
 def start_ga_callback(n_clicks, is_running):
-    if n_clicks:
-        if not is_running:
-            set_ga_active(True)
-            # open new thread to run the GA
-            thread = Thread(target=start_ga)
-            thread.start()
-            return True
-        return True
-    return False
+    if not n_clicks or is_running:
+        return is_running
+
+    set_ga_active(True)
+    # Open a new thread to runt the GA
+    def run_ga_thread():
+        config = load_config()
+        ga = GeneticAlgorithm(config)
+        ga.start_ga()
+            
+    thread = Thread(target=run_ga_thread)
+    thread.start()
+    return True
 
 @app.callback(
     Output("ga-running", "data", allow_duplicate=True),
@@ -404,7 +505,6 @@ def update_diversity_graph(n_intervals, is_running):
 
     # Prevent update if there is no log yet, or display most recent figure
     if not diversity_log:
-        print("dash_app: No diversity score log found.")
         return last_diversity_fig if last_diversity_fig else dash.no_update
     
     scores = diversity_log
@@ -427,10 +527,8 @@ def update_diversity_graph(n_intervals, is_running):
         annotations=[
             dict(
                 text="Population Diversity",
-                x=0.5,
-                y=0.5,
-                xref="paper",
-                yref="paper",
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
                 font=dict(size=30, color="rgba(153, 179, 255,0.2)"),
                 showarrow=False
             ),
@@ -456,6 +554,71 @@ def update_diversity_graph(n_intervals, is_running):
         zeroline=False,
     )
     return last_diversity_fig
+
+@app.callback(
+        Output("graph-3", "figure", allow_duplicate=True),
+        Input("interval-component", "n_intervals"),
+        State("ga-running", "data"),
+        prevent_initial_call=True
+)
+def update_fitness_chart(n_iternvals, is_running):
+    fitness_log = get_fitness_history_log()
+
+    if not is_ga_active or not fitness_log:
+        return px.line(title="Fitness Metrics")
+    
+    generations = list(range(1, len(fitness_log) + 1))
+    min_fitness = [fit[0] for fit in fitness_log]
+    mean_fitness = [fit[1] for fit in fitness_log]
+    max_fitness = [fit[2] for fit in fitness_log]
+
+    fig = px.line(labels={"x": "", "y": ""})
+    fig.add_scatter(x=generations, y=max_fitness, mode="lines+markers", name="Max Fitness")
+    fig.add_scatter(x=generations, y=mean_fitness, mode="lines+markers", name="Mean Fitness")
+    fig.add_scatter(x=generations, y=min_fitness, mode="lines+markers", name="Min Fitness")
+    # Reused format from Population Diversity chart.
+    fig.update_layout(
+        annotations=[
+            dict(
+                text="Fitness Progress",
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                font=dict(size=30, color="rgba(153, 179, 255,0.2)"),
+                showarrow=False
+            ),
+        ],
+        legend=dict(
+            orientation="h",
+            y=0,
+            x=0.5,
+            xanchor="center",
+            yanchor="top",
+            font=dict(color="white"),
+            bgcolor="rgba(0,0,0,0)"
+        ),
+        autosize=True,
+        margin=dict(l=0,r=0,t=0,b=0,pad=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
+    fig.update_xaxes(
+        showticklabels=False,
+        ticks="",
+        fixedrange=True,  # Prevents zooming
+        showgrid=False,
+        zeroline=False,
+    )
+    fig.update_yaxes(
+        showticklabels=True,
+        ticks="outside",
+        tickvals=[0.0,0.5,1.0],
+        tickfont=dict(size=14, color="lightblue", family="Arial Bold"),
+        range=[0,1],
+        fixedrange=True,
+        showgrid=False,
+        zeroline=False,
+    )
+    return fig
 
 @app.callback(
     Output("results-panel-body", "children"),
@@ -531,8 +694,7 @@ def update_molecule_image(selected_rows, mol_list):
         if not smiles:
             return dash.no_update, selected_mol.get("Molecule", "Error Loading Compound Image")
 
-        mol_graph = mol_to_graph(smiles)
-        mol = nx_graph_to_mol(mol_graph)
+        mol = Chem.MolFromSmiles(smiles)
 
         if not mol:
             return dash.no_update, selected_mol.get("Molecule", "Error Loading Compound Image")
@@ -597,11 +759,67 @@ def update_selected_fitness(selected_functions):
     return selected_functions
 
 @app.callback(
-    Output("mw-threshold-slider", "value"),
-    Input("mw-threshold-slider", "value")
+    Output("mutation-weights-store", "data"),
+    [
+        Input("atomic-input", "value"),
+        Input("functional-group-input", "value"),
+        Input("ring-input", "value"),
+        Input("fragment-input", "value")
+    ]
 )
-def update_mol_threshold(value):
-    update_mol_weight_threshold(value)
+def update_mutation_probabilities_callback(atomic, functional, ring, fragment):
+    """
+    Updates global mutation probabilites dictionary dynamically based on user input
+    """
+    updated_weights = {
+        "atomic_substitution": atomic,
+        "functional_group": functional,
+        "ring": ring,
+        "framgment": fragment,
+    }
+
+    update_mutation_probabilities(updated_weights)
+    return updated_weights
+
+@app.callback(
+    Output("basic-fitness-collapse", "is_open"),
+    Output("advanced-fitness-collapse", "is_open"),
+    Input("fitness-advanced-toggle", "value")
+)
+def toggle_fitness_mode(toggle_val):
+    if "advanced" in toggle_val:
+        return False, True
+    return True, False
+
+@app.callback(
+    Output("fitness-advanced-toggle", "style"),
+    Input("fitness-advanced-toggle", "value"),
+    Input("qed-tuning", "value"),
+    Input("sa-tuning", "value"),
+    Input("mw-tuning", "value"),
+    Input("mw-filter-min", "value"),
+    Input("mw-filter-max", "value"),
+    Input("logp-filter-min", "value"),
+    Input("logp-filter-max", "value"),
+    Input("filter-selection", "value"),
+)
+def update_fitness_settings(advanced_toggle, qed, sa, mw, mw_min, mw_max, logp_min, logp_max, filters):
+    # Update Weights
+    tuning_weights = {
+        "qed": qed,
+        "sa": sa,
+        "mol_weight": mw
+    }
+    update_tuning_weights(tuning_weights)
+
+    if "advanced" in advanced_toggle:
+        # Update Filters
+        update_active_filters(filters)
+        update_mw_range([mw_min, mw_max])
+        update_logp_range([logp_min, logp_max])
+    else:
+        update_active_filters([])
+
     return dash.no_update
 
 if __name__ == "__main__":

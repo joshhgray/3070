@@ -2,7 +2,7 @@ import os
 import unittest
 import pytest
 import networkx as nx
-from src.controller import start_ga
+from archive.controller import start_ga
 from src.evolutionary_system.utils.config_loader import load_config
 from rdkit import Chem
 import networkx as nx

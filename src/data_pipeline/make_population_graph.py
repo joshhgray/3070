@@ -1,17 +1,22 @@
 """
-This is a basic implementation of a Hierarchical encoding schema
-for the Multi-Level Selection Genetic Algorithm (MLSGA).
+This includes a basic implementation of a Hierarchical encoding schema
+for the Multi-Level Selection Genetic Algorithm (MLSGA). 
+
+(In BGC mode)
 
 Root Node: Represents whole population
 Group Nodes: Represent clusters of BGCs
 Individual Nodes: Represent individual BGCs
 """
 from collections import defaultdict
-#from rdkit import RDLogger
 import networkx as nx
-from src.data_pipeline.sample_population import sample_bgcs
+from src.data_pipeline.sample_population import sample_bgcs, sample_smiles
+from rdkit import Chem
+import pandas as pd
+import uuid
+import os
 
-def make_population_graph(population_size):
+def make_population_graph(population_size, population_type):
     """
     Build a hierarchical graphical representation of the population based on 
     the BGC JSON data
@@ -19,23 +24,6 @@ def make_population_graph(population_size):
     :param population_size: Size of initial population.
     :returns: NetworkX DiGraph representing the hierarchical population structure.
     """
-
-    sampled_bgcs = sample_bgcs(population_size)
-
-    # Group BGCs by biosynthesis class
-    # Default missing attributes to "Unknown"
-    groups = defaultdict(list)
-    for bgc in sampled_bgcs:
-        biosynthesis_classes = [
-            biosynthesis_class.get("class", "Unknown") 
-            for biosynthesis_class in bgc.get("biosynthesis", {}).get("classes", [])
-        ]
-
-        if not biosynthesis_classes:
-            biosynthesis_classes = ["Unknown"]
-        for biosynthesis_class in biosynthesis_classes:
-            groups[biosynthesis_class].append(bgc)
-
     # Iniitalize the directed graph
     population_graph = nx.DiGraph()
 
@@ -47,82 +35,115 @@ def make_population_graph(population_size):
         total_fitness=0.0,
         total_mass=0.0,
     )
+    # SMILES population building logic
+    if population_type == "smiles":
+        # Read preprocessed SMILES CSV
+        cd = os.path.dirname(os.path.abspath(__file__))
+        preprocessed_smiles = os.path.join(cd, "../../preprocessed_smiles.csv")
+        df = pd.read_csv(preprocessed_smiles)
 
-    # Add Group and Inidividual-level nodes
-    """
-    TODO - I've added some extra attributes here, I don't have a plan to use
-    them but if there is remote possibility I could use them I will keep them
-    so I can use them later on. Attributes can be commented out.
-    """
-    for group_name, group_bgcs in groups.items():
-        population_graph.add_node(
-            group_name,
-            level="Group",
-            total_fitness=0.0,
-            average_fitness= 0.0,
-            size=len(group_bgcs),
-            total_mass=0.0,
-            average_mass=0.0,
-            total_cyclic_count=0,
-        )
+        # Extract selected number of SMILES from the pool and convert to python list
+        df = df[df["Smiles"].notna()]
+        sampled_smiles = df.sample(n=population_size, replace=True)["Smiles"].tolist()
+
+        group_name = "SMILES_group" # TODO - temp
+        population_graph.add_node(group_name, level="Group", size=population_size)
         population_graph.add_edge("Population", group_name)
 
-        for bgc in group_bgcs:
-            # Extract relevant attributes from bgc data
-            accession_number = bgc.get("accession")
-            biosynthesis_class = [
-                biosynthesis_class.get("class", "Unknown")
-                for biosynthesis_class in bgc.get("biosynthesis", {}).get("classes", [])
-            ]
-            taxonomy = bgc.get("taxonomy", {}).get("name", "Unknown")
-            compounds = bgc.get("compounds", [])
-
-            # Format the compound(s) data
-            compound_data = []
-            total_mass = 0.0
-            for compound in compounds:
-                structure = compound.get("structure", "Unkonwn")
-                mass = compound.get("mass", 0.0)
-                formula = compound.get("formula", "Unkonw")
-                mol_graph = compound.get("mol_graph", None)
-
-                compound_data.append({
-                    "structure": structure,
-                    "mass": mass,
-                    "formula": formula,
-                    "mol_graph": mol_graph
-                })
-
-                total_mass += mass
-            average_mass = total_mass / len(compound_data) if compound_data else 0.0
-
-        
-            # Add the node
+        for smiles in sampled_smiles:
+            mol = Chem.MolFromSmiles(smiles)
+            # Ensure chemical validity before adding to population
+            if mol is None:
+                continue
+            try:
+                Chem.SanitizeMol(mol)
+            except:
+                continue
+            
+            node_id = f"mol_{uuid.uuid4().hex[:10]}"
             population_graph.add_node(
-                accession_number,
+                node_id,
                 level="Individual",
                 raw_fitness=0.0,
-                accession_number=accession_number,
-                biosynthesis_class=biosynthesis_class,
-                taxonomy=taxonomy,
-                compounds=compound_data,
-                average_mass=average_mass
+                taxonomy=None,
+                biosynthesis_class=None,
+                compounds=[{"structure": smiles, "mol": mol}],
+                elite=False
             )
-            population_graph.add_edge(group_name, accession_number)
-    # si hay un error cuando haciendo el graph en el initial population
-    # for node in population_graph.nodes:
-    #     if population_graph.nodes[node]["level"] == "Individual":
-    #         for compound in population_graph.nodes[node]["compounds"]:
-    #             if "mol_graph" not in compound or compound["mol_graph"] is None:
-    #                 print(f"Missing mol_graph for {node}")
+            population_graph.add_edge(group_name, node_id)
+
+
+
+    # BGC population building logic
+    elif population_type == "bgc":
+        sampled_bgcs = sample_bgcs(population_size)
+
+        # Group BGCs by biosynthesis class
+        # Default missing attributes to "Unknown"
+        groups = defaultdict(list)
+        for bgc in sampled_bgcs:
+            biosynthesis_classes = [
+                biosynthesis_class.get("class", "Unknown") 
+                for biosynthesis_class in bgc.get("biosynthesis", {}).get("classes", [])
+            ]
+
+            if not biosynthesis_classes:
+                biosynthesis_classes = ["Unknown"]
+
+            for biosynthesis_class in biosynthesis_classes:
+                groups[biosynthesis_class].append(bgc)
+
+        # Add Group and Inidividual-level nodes
+        for group_name, group_bgcs in groups.items():
+            population_graph.add_node(
+                group_name,
+                level="Group",
+                total_fitness=0.0,
+                size=len(group_bgcs),
+            )
+            population_graph.add_edge("Population", group_name)
+
+            for bgc in group_bgcs:
+                # Extract relevant attributes from bgc data
+                accession_number = bgc.get("accession")
+                taxonomy = bgc.get("taxonomy", {}).get("name", "Unknown")
+                compounds = bgc.get("compounds", [])
+
+                # Format the compound(s) data
+                compound_data = []
+                for compound in compounds:
+                    structure = compound.get("structure", "Unknown")
+                    mass = compound.get("mass", 0.0)
+                    formula = compound.get("formula", "Unknown")
+                    
+                    # Extract RDKit Mol object from SMILES string to store in graph.
+                    mol = Chem.MolFromSmiles(structure) if structure != "Unknown" else None
+                    # Ensure validity
+                    if mol is None:
+                        continue
+                    try:
+                        Chem.SanitizeMol(mol)
+                    except:
+                        continue
+
+                    compound_data.append({
+                        "structure": structure,
+                        "mass": mass,
+                        "formula": formula,
+                        "mol": mol
+                    })
+
+                # Add the node
+                population_graph.add_node(
+                    accession_number,
+                    level="Individual",
+                    raw_fitness=0.0,
+                    accession_number=accession_number,
+                    biosynthesis_class=group_name,
+                    taxonomy=taxonomy,
+                    compounds=compound_data,
+                    elite=False,
+                )
+                population_graph.add_edge(group_name, accession_number)
+
     return population_graph
-
-
-
-
-
-
-
-
-
-
