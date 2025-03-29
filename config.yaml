@@ -1,13 +1,13 @@
 carrying_capacity: 2000
 crossover_methods:
 - mcs_crossover
-data_source: bgc
+data_source: smiles
 elitism_weight: 1
 mutation_weights:
-  atomic_substitution: 0.25
-  framgment: 0
-  functional_group: 0.25
-  ring: 0
+  atomic_substitution: 0.5
+  framgment: 0.5
+  functional_group: 0.5
+  ring: 0.5
 num_generations: 1000
 population_size: 1000
 selection_method: stochastic_universal_sampling

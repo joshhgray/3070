@@ -52,7 +52,7 @@ class GeneticAlgorithm:
         self.elitism_weight = config.get("elitism_weight")
         self.mutation_weights = config.get("mutation_weights")
         self.selection_method = config.get("selection_method")
-        self.selection_cutoff = 50 # TODO
+        self.selection_cutoff = 0.2
         self.carrying_capacity = config["carrying_capacity"]
         self.population_type = config["data_source"]
         self.working_population = None
@@ -95,16 +95,70 @@ class GeneticAlgorithm:
     
     def apply_selection(self):
         """
-        Applies the selected selection method to choose parents for reproduction, and assigning
-        corresponding parameters
+        Multi-level selection where groups are selected via SUS based on group fitness,
+        then apply standard selection within selected groups
         """
-        selection_method = SELECTION_METHODS[self.selection_method]
-        if self.selection_method == "stochastic_universal_sampling":
-            parents = selection_method.select(self.working_population)
+        groups = list(self.working_population.successors("Population"))
+        group_fitnesses = [self.working_population.nodes[group].get("group_fitness") 
+                           for group in groups]
+        
+        # Normalize group fitness
+        total_fitness = sum(group_fitnesses)
+        if total_fitness == 0: # avoid divide zero
+            probabilities = [1 / len(groups)] * len(groups)
         else:
-            parents = selection_method(self.working_population, self.selection_cutoff)
+            probabilities = [fit_score / total_fitness for fit_score in group_fitnesses]
 
-        return parents
+        """
+        Group-level Selection - select groups
+
+        Based off of: https://en.wikipedia.org/wiki/Stochastic_universal_sampling
+        Original Source: 
+        Baker, J. E. (1987, July). Reducing bias and inefficiency in the selection algorithm. 
+        In Proceedings of the second international conference on genetic algorithms (Vol. 206, 
+        pp. 14-21).
+        """
+        selected_groups = []
+        # minimum of 1 to avoid zero division
+        num_selected_groups = max(1, int(len(groups) * self.selection_cutoff))
+
+        # Set up SUS pointers
+        p = 1.0 / num_selected_groups 
+        start = random.uniform(0, p)
+        pointers = [start + i * p for i in range(num_selected_groups)]
+        cumulative_probabilities = np.cumsum(probabilities)
+
+        i = 0
+        # Roulette Wheel Selection
+        for pointer in pointers:
+            while i < len(cumulative_probabilities) and cumulative_probabilities[i] < pointer:
+                i += 1
+            if i < len(groups): # avoid out of bounds
+                selected_groups.append(groups[i])
+
+        """
+        Individual-level Selection - select individuals within selected groups
+        """
+        selected_parents = []
+        selection_operator = SELECTION_METHODS[self.selection_method
+                                               ]
+        for group in selected_groups:
+            individuals = list(self.working_population.successors(group))
+            # Apply Rank-based
+            if self.selection_method == "rank_based_selection":
+                parents = selection_operator.select(self.working_population,
+                                                     selection_cutoff=self.selection_cutoff,
+                                                     nodes=individuals)
+            # Apply SUS 
+            elif self.selection_method == "stochastic_universal_sampling":
+                parents = selection_operator.select(self.working_population, 
+                                                    root_node=group,
+                                                    selection_cutoff=self.selection_cutoff)
+            else:
+                return None
+            
+            selected_parents.extend(parents)
+        return selected_parents
 
     def select_mutation_type(self):
         """
@@ -316,6 +370,15 @@ class GeneticAlgorithm:
             update_current_generation_number(generation + 1)
 
             """
+            Calculate Group Fitness
+            """
+            for group in self.working_population.successors("Population"):
+                individuals = list(self.working_population.successors(group))
+                fitnesses = [self.working_population.nodes[node]["raw_fitness"] for node in individuals]
+                group_fitness = sum(fitnesses) / len(fitnesses) if fitnesses else 0.0 # prevent divide zero
+                self.working_population.nodes[group]["group_fitness"] = group_fitness
+
+            """
             Elitism
             """
             individuals = [node for node in self.working_population.nodes if self.working_population.nodes[node]["level"] == "Individual"]
@@ -448,7 +511,3 @@ if __name__ == "__main__":
     set_ga_active(True)
     ga = GeneticAlgorithm(config)
     final_population, diversity_log = ga.start()
-
-
-
-

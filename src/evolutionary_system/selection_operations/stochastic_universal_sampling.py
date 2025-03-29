@@ -5,41 +5,60 @@ from src.evolutionary_system.selection_operations.selection import Selection
 class StochasticUniversalSampling(Selection):
 
 
-    def select(self, population):
+    def select(self, population, root_node="Population", selection_cutoff=0.2):
         """
         Performs Stochastic Universal Sampling to select parents.
+        Can perform on set of individuals in full population or set of individuals within 
+        a given group. 
 
-        :param population:
-        :param carrying_capacity:
-        :returns
+        Based off of: https://en.wikipedia.org/wiki/Stochastic_universal_sampling
+        Original Source: 
+        Baker, J. E. (1987, July). Reducing bias and inefficiency in the selection algorithm. 
+        In Proceedings of the second international conference on genetic algorithms (Vol. 206, 
+        pp. 14-21).
+
+        :param population: NetworkX graph representign the population.
+        :param root_node: A group level node.
+        :param selection_cutoff: Percentage of group or population to select.
+        :returns: List of selected individual node IDs
         """
-        # Calculate total fitness of population and normalize (prevent divide by zero)
-        # Conditional prevents access to group and population level nodes
-        individuals = [node for node in population.nodes if population.nodes[node].get("level") == "Individual"]
-        
-        total_fitness = sum(population.nodes[node].get("raw_fitness") for node in individuals)
-
-        # Prevent division by 0 from being a possibility
-        if total_fitness == 0:
-            probabilities = np.ones(len(individuals))
+        # Group level
+        if root_node != "Population":
+            individuals = list(population.successors(root_node))
+        # Population level
         else:
-            probabilities = np.array([population.nodes[node]["raw_fitness"] / total_fitness for node in individuals])
+            individuals = [node for node in population.nodes if population.nodes[node].get("level") == "Individual"]
+        
+        fitnesses = np.array([population.nodes[node].get("raw_fitness") for node in individuals])
+        total_fitness = np.sum(fitnesses)
 
-        """Roulette-wheel Selection"""
-        # Select a minimum of 10 mols as parents
-        num_parents = max(10, min(len(individuals) // 5, len(individuals)))
+        # RWS requires normalized probabilities
+        if total_fitness == 0: # avoid divide zero
+            probabilities = np.ones(len(individuals)) / len(individuals)
+        else:
+            probabilities = fitnesses / total_fitness
+
+        # SUS setup
+        selected_individuals = []
+        # minimum of 1 to avoid zero division
+        num_selected_individuals = max(1, int(len(individuals) * selection_cutoff))
+
+        # Distance between selection points
+        p = 1.0 / num_selected_individuals
+        # Random start location
+        start = random.uniform(0, p)
         # Selection points
-        step_size = 1 / num_parents
-        # Random selection of start point
-        start_point = random.uniform(0, step_size)
+        pointers = [start + i * p for i in range(num_selected_individuals)]
         cumulative_probabilities = np.cumsum(probabilities)
-
-        selected_parents = []
         i = 0
-        for _ in range(num_parents):
-            while i < len(cumulative_probabilities) and cumulative_probabilities[i] < start_point:
-                i += 1
-            selected_parents.append(individuals[i])
-            start_point += step_size
 
-        return selected_parents
+        """
+        Roulette-wheel Selection
+        """
+        for pointer in pointers:
+            while i < len(cumulative_probabilities) and cumulative_probabilities[i] < pointer:
+                i += 1
+            if i < len(individuals): # avoid out of bounds
+                selected_individuals.append(individuals[i])
+
+        return selected_individuals

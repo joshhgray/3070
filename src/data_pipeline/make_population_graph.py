@@ -33,7 +33,6 @@ def make_population_graph(population_size, population_type):
         level="Root",
         diversity=0.0,
         total_fitness=0.0,
-        total_mass=0.0,
     )
     # SMILES population building logic
     if population_type == "smiles":
@@ -72,8 +71,6 @@ def make_population_graph(population_size, population_type):
             )
             population_graph.add_edge(group_name, node_id)
 
-
-
     # BGC population building logic
     elif population_type == "bgc":
         sampled_bgcs = sample_bgcs(population_size)
@@ -98,8 +95,7 @@ def make_population_graph(population_size, population_type):
             population_graph.add_node(
                 group_name,
                 level="Group",
-                total_fitness=0.0,
-                size=len(group_bgcs),
+                group_fitness=0.0,
             )
             population_graph.add_edge("Population", group_name)
 
