@@ -210,9 +210,13 @@ class GeneticAlgorithm:
         """
         Applies one of the selected mutations to the parent molecules.
         Continusously tracks success rate of mutation operations.
+        If mutation fails, fallback to the next most probable mutation operations
+        based on their weights, otherwise return the original.
         """
         mutation_attempts = 0
         mutation_successes = 0
+
+        selected_types = list(self.mutation_weights.keys())
 
         for parent in parents:
             # Extract mol graph from parent
@@ -225,34 +229,42 @@ class GeneticAlgorithm:
             if mol is None:
                 continue
             
-            # Probabilstically select and apply mutation by type
-            mutation_type = self.select_mutation_type()
-            mutation_attempts += 1
+            selected_mutation = self.select_mutation_type
+            if selected_mutation is None:
+                continue
+            
+            # Sort mutation types by probability of occuring (based on user given weights auto or equal weight = random selection)
+            sorted_mutation_types = sorted(self.mutation_weights.items(), key=lambda item: item[1], reverse=True)
+            fallback_mutation_types = [mut for mut, _ in sorted_mutation_types if mut != selected_mutation]
+            attempts = [selected_mutation] + fallback_mutation_types
 
-            try:
-                # Get an editable version of the mol and apply selected mutation type
-                rw_mol = Chem.RWMol(mol)
-                mutated_mol = self.apply_mutation_by_type(rw_mol, mutation_type)
+            for mutation_type in attempts:
 
-                if mutated_mol and mutated_mol.GetNumAtoms() > 0:
-                    # Check if molecule is framented and only keep largest if so.
-                    frags = Chem.GetMolFrags(mutated_mol, asMols=True, sanitizeFrags=True)
+                try:
+                    # Get an editable version of the mol and apply selected mutation type
+                    rw_mol = Chem.RWMol(mol)
+                    mutated_mol = self.apply_mutation_by_type(rw_mol, mutation_type)
 
-                    if len(frags) > 1:
-                        mutated_mol = max(frags, key=lambda mol: mol.GetNumAtoms())
+                    if mutated_mol and mutated_mol.GetNumAtoms() > 0:
+                        # Check if molecule is framented and only keep largest if so.
+                        frags = Chem.GetMolFrags(mutated_mol, asMols=True, sanitizeFrags=True)
 
-                    Chem.SanitizeMol(mutated_mol)
-                    mutated_smiles = Chem.MolToSmiles(mutated_mol)
+                        if len(frags) > 1:
+                            mutated_mol = max(frags, key=lambda mol: mol.GetNumAtoms())
 
-                    if mutated_mol:
-                        new_id = f"offspring_{uuid.uuid4().hex[:10]}"
-                        self.working_population.add_node(new_id, level="Individual", compounds=[])
-                        self.working_population.nodes[new_id]["compounds"] = [{"structure": mutated_smiles, "mol": mutated_mol}]
-                        self.working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(mutated_mol)
-                        mutation_successes += 1
+                        Chem.SanitizeMol(mutated_mol)
+                        mutated_smiles = Chem.MolToSmiles(mutated_mol)
 
-            except Exception as e:
-                return mutation_attempts, mutation_successes
+                        if mutated_mol:
+                            new_id = f"offspring_{uuid.uuid4().hex[:10]}"
+                            self.working_population.add_node(new_id, level="Individual", compounds=[])
+                            self.working_population.nodes[new_id]["compounds"] = [{"structure": mutated_smiles, "mol": mutated_mol}]
+                            self.working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(mutated_mol)
+                            mutation_successes += 1
+                            break
+
+                except Exception as e:
+                    return mutation_attempts, mutation_successes
             
         return mutation_attempts, mutation_successes
 
