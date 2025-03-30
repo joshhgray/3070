@@ -57,9 +57,6 @@ class GeneticAlgorithm:
         self.population_type = config["data_source"]
         self.working_population = None
         self.diversity_log = []
-        # Load fragment library and pass to Fragment Mutation function
-        self.fragment_library = self.load_fragment_library()
-        self.fragment_mutator = FragmentMutation(self.fragment_library)
 
     def load_fragment_library(self):
         """
@@ -98,10 +95,22 @@ class GeneticAlgorithm:
         Multi-level selection where groups are selected via SUS based on group fitness,
         then apply standard selection within selected groups
         """
+        """
+        Compute normalized, average group fitness for each group in the population.
+        """
         groups = list(self.working_population.successors("Population"))
-        group_fitnesses = [self.working_population.nodes[group].get("group_fitness") 
-                           for group in groups]
-        
+        group_fitnesses = []
+        for group in groups:
+            individuals = list(self.working_population.successors(group))
+            individual_fitnesses = [self.working_population[node].get("raw_fitness") for node in individuals]
+            if individual_fitnesses:
+                avg_fitness = np.mean(individual_fitnesses)
+            else:
+                avg_fitness = 0.0
+            # Add to graph
+            self.working_population.nodes[group]["group_fitness"] = avg_fitness
+            group_fitnesses.append(avg_fitness)
+
         # Normalize group fitness
         total_fitness = sum(group_fitnesses)
         if total_fitness == 0: # avoid divide zero
@@ -189,21 +198,17 @@ class GeneticAlgorithm:
         """
         # ATOMIC
         if mutation_type == "atomic_substitution":
-            print("MUTATION: atomic")
             return AtomicSubstitutionMutation().apply(mol)
         # FUNCTIONAL
         elif mutation_type == "functional_group":
-            print("MUTATION: fgm")
             return BioisostericMutation().apply(mol)
 
         # RING
         elif mutation_type == "ring":
-            print("MUTATION: ring")
             return RingMutation().apply(mol)
 
         # FRAGMENT
         elif mutation_type == "fragment":
-            print("MUTATION: frag")
             return self.fragment_mutator.apply(mol)
 
     def apply_mutation(self, parents):
@@ -216,8 +221,6 @@ class GeneticAlgorithm:
         mutation_attempts = 0
         mutation_successes = 0
 
-        selected_types = list(self.mutation_weights.keys())
-
         for parent in parents:
             # Extract mol graph from parent
             # Note: t is mportant to add backup logic becuase it is easy to 
@@ -229,7 +232,7 @@ class GeneticAlgorithm:
             if mol is None:
                 continue
             
-            selected_mutation = self.select_mutation_type
+            selected_mutation = self.select_mutation_type()
             if selected_mutation is None:
                 continue
             
@@ -297,6 +300,11 @@ class GeneticAlgorithm:
 
             mol_1 = mol_1_compounds[0].get("mol") if mol_1_compounds else None
             mol_2 = mol_2_compounds[0].get("mol") if mol_2_compounds else None
+
+            # Getting stuck on large mols while running multiprocessing
+            # temp fix to filter out performing crossover on too big of mols
+            if mol_1.GetNumAtoms() > 100 or mol_2.GetNumAtoms() > 100:
+                continue
 
             crossover_attempts += 1
             
@@ -370,7 +378,7 @@ class GeneticAlgorithm:
 
     def run_ga(self):
         # Execute the main generational loop of the GA
-        print("GA: Evaluating Initial Fitness.")
+        #print("GA: Evaluating Initial Fitness.")
         self.evaluate_initial_fitness()
 
         # Generational Loop
@@ -411,25 +419,25 @@ class GeneticAlgorithm:
             Genetic Operations
             """
             # Selection
-            print("DEBUG: Selecting Parents")
+            #print("DEBUG: Selecting Parents")
             parents = self.apply_selection()
 
-            print("DEBUG: Applying Mutation")
+            #print("DEBUG: Applying Mutation")
             # Mutation
             mutation_attempts, mutation_successes = self.apply_mutation(parents)
 
-            print("DEBUG: Applying Crossover")
+            #print("DEBUG: Applying Crossover")
             # Crossover
             crossover_attempts, crossover_successes = self.apply_crossover(parents)
 
-            print("DEBUG: Pruning Population")
+            #print("DEBUG: Pruning Population")
             # Population Control
             self.prune_population()
             
             """
             Logging
             """
-            print("DEBUG: Logging Succes Rates")
+            #print("DEBUG: Logging Succes Rates")
             # Log sucess rates
             if mutation_attempts > 0:
                 mutation_rate = (mutation_successes / mutation_attempts) * 100
@@ -441,7 +449,7 @@ class GeneticAlgorithm:
                 update_crossover_log(crossover_rate)
                 update_latest_crossover_rates(crossover_rate)
 
-            print("DEBUG: Updating Global States")
+            #print("DEBUG: Updating Global States")
             # Update global states
             population_size = sum(1 for node in self.working_population.nodes 
                                   if self.working_population.nodes[node]["level"] == "Individual")
@@ -452,7 +460,7 @@ class GeneticAlgorithm:
             #        saving the entire population to global state. Or keep for reproduciblity?
             update_latest_population(self.working_population)
 
-            print("DEBUG: Updating Fitness Log")
+            #print("DEBUG: Updating Fitness Log")
             # Extract min, mean, and max fitness values
             individuals = [node for node in self.working_population.nodes 
                     if self.working_population.nodes[node]["level"] == "Individual"]
@@ -464,7 +472,7 @@ class GeneticAlgorithm:
                 max_fitness = max(fitness_values)
                 update_fitness_log((min_fitness, mean_fitness, max_fitness))
 
-            print("DEBUG: Updating Diversity Log")
+            #print("DEBUG: Updating Diversity Log")
             # Calculate and log diversity metrics
             diversity = calculate_population_diversity(self.working_population)
             self.diversity_log.append(diversity)
@@ -476,6 +484,12 @@ class GeneticAlgorithm:
         return self.working_population, self.diversity_log
     
     def start_ga(self):
+        # Load fragment library and pass to Fragment Mutation function
+        # - These must be initialized here in order to do multi-processing batch runs
+        # - otherwise they can cause serialization issues.
+        self.fragment_library = self.load_fragment_library()
+        self.fragment_mutator = FragmentMutation(self.fragment_library)
+
         """
         Starts execution of GA: initialize, run, log.
         """
@@ -494,7 +508,7 @@ class GeneticAlgorithm:
         final_population, diversity_log = self.run_ga()
 
         # Benchmarking and Logging
-        print("GA: GA complete, logging results")
+        #print("GA: GA complete, logging results")
         end_time = time.time()
         runtime = end_time - start_time
         # using oneshot here because I plan on running additional processing benchmarks
@@ -522,4 +536,4 @@ if __name__ == "__main__":
     config = load_config()
     set_ga_active(True)
     ga = GeneticAlgorithm(config)
-    final_population, diversity_log = ga.start()
+    final_population, diversity_log = ga.start_ga()
