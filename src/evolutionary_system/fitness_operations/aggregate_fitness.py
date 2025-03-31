@@ -29,10 +29,9 @@ def aggregate_fitness(mol):
     """
     Filters - hard filters that ensure failing molecules are removed from the population.
     """ 
-    if filters is not []:
+    if len(filters) > 0:
         # Lipinski's Rule of Five
         if "ro5" in filters and lipinski_score(mol) >= 0.6:
-            print("filtered by ro5")
             return 0.01
 
         # Molecular Weight Filter

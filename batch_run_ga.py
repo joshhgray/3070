@@ -14,20 +14,34 @@ To run: python3 batch_run_ga.py | tee batch_run.log
 """
 DEFINE PARAMETERS
 """
-carrying_capacities = [2000, 5000]
+# carrying_capacities = [2000, 5000]
+# crossover_methods = [["mcs_crossover"]]
+# data_sources = ["smiles", "bgc"]
+# elitism_weights = [1, 2]
+# mutation_weights = [
+#     {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.25, "fragment": 0.25},
+#     {"atomic_substitution": 0.75, "functional_group": 0.25, "ring": 0.25, "fragment": 0.25},
+#     {"atomic_substitution": 0.25, "functional_group": 0.75, "ring": 0.25, "fragment": 0.25},
+#     {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.75, "fragment": 0.25},
+#     {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.25, "fragment": 0.75},
+# ]
+# num_generations = [1000, 2000]
+# population_sizes = [1000, 2000, 5000]
+# selection_methods = ["stochastic_universal_sampling", "rank_based_selection"]
+
+"""
+DEMO PARAMETERS - quick run
+"""
+carrying_capacities = [2000]
 crossover_methods = [["mcs_crossover"]]
-data_sources = ["smiles", "bgc"]
-elitism_weights = [1, 2]
+data_sources = ["smiles"]
+elitism_weights = [1]
 mutation_weights = [
     {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.25, "fragment": 0.25},
-    {"atomic_substitution": 0.75, "functional_group": 0.25, "ring": 0.25, "fragment": 0.25},
-    {"atomic_substitution": 0.25, "functional_group": 0.75, "ring": 0.25, "fragment": 0.25},
-    {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.75, "fragment": 0.25},
-    {"atomic_substitution": 0.25, "functional_group": 0.25, "ring": 0.25, "fragment": 0.75},
 ]
-num_generations = [1000, 2000]
-population_sizes = [1000, 2000, 5000]
-selection_methods = ["stochastic_universal_sampling", "rank_based_selection"]
+num_generations = [100, 1000]
+population_sizes = [1000]
+selection_methods = ["stochastic_universal_sampling"]
 
 """
 GENERATE CONFIGS

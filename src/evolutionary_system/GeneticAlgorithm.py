@@ -16,7 +16,8 @@ from src.evolutionary_system.utils.ga_state import (
     set_ga_active, update_latest_crossover_rates, update_latest_mutation_rates, 
     update_crossover_log, update_mutation_log, update_current_population_size, 
     update_current_generation_number, update_fitness_log, get_tuning_weights,
-    get_active_filters, get_mw_range, get_logp_range
+    get_active_filters, get_mw_range, get_logp_range, get_fitness_history_log,
+    get_mutation_log, get_crossover_log
 )
 from rdkit import Chem
 import pandas as pd
@@ -37,10 +38,10 @@ SELECTION_METHODS = {
     "stochastic_universal_sampling": StochasticUniversalSampling(),
 }
 FITNESS_CONFIG = {
-    "tuning_weights": get_tuning_weights,
-    "active_filters": get_active_filters,
-    "mw_range": get_mw_range,
-    "logp_range": get_logp_range
+    "tuning_weights": get_tuning_weights(),
+    "active_filters": get_active_filters(),
+    "mw_range": get_mw_range(),
+    "logp_range": get_logp_range()
 }
 
 class GeneticAlgorithm:
@@ -52,11 +53,13 @@ class GeneticAlgorithm:
         self.elitism_weight = config.get("elitism_weight")
         self.mutation_weights = config.get("mutation_weights")
         self.selection_method = config.get("selection_method")
-        self.selection_cutoff = 0.2
+        self.selection_cutoff = 0.5
         self.carrying_capacity = config["carrying_capacity"]
         self.population_type = config["data_source"]
         self.working_population = None
         self.diversity_log = []
+        self.fragment_library = self.load_fragment_library()
+        self.fragment_mutator = FragmentMutation(self.fragment_library)
 
     def load_fragment_library(self):
         """
@@ -102,7 +105,14 @@ class GeneticAlgorithm:
         group_fitnesses = []
         for group in groups:
             individuals = list(self.working_population.successors(group))
-            individual_fitnesses = [self.working_population[node].get("raw_fitness") for node in individuals]
+            # Can't seem to get NoneType's from getting into individual_fitnesses
+            # So filtering out everything except ints and floats here
+            individual_fitnesses = []
+            for node in individuals:
+                fitness_score = self.working_population.nodes[node].get("raw_fitness")
+                if isinstance(fitness_score, (int, float)): # Ensure int or float type
+                    individual_fitnesses.append(fitness_score)
+
             if individual_fitnesses:
                 avg_fitness = np.mean(individual_fitnesses)
             else:
@@ -124,7 +134,7 @@ class GeneticAlgorithm:
         Based off of: https://en.wikipedia.org/wiki/Stochastic_universal_sampling
         Original Source: 
         Baker, J. E. (1987, July). Reducing bias and inefficiency in the selection algorithm. 
-        In Proceedings of the second international conference on genetic algorithms (Vol. 206, 
+        In Proceedings of the second international conference on genetic algorithms (Vol. 206,
         pp. 14-21).
         """
         selected_groups = []
@@ -236,6 +246,7 @@ class GeneticAlgorithm:
             if selected_mutation is None:
                 continue
             
+            mutation_attempts += 1
             # Sort mutation types by probability of occuring (based on user given weights auto or equal weight = random selection)
             sorted_mutation_types = sorted(self.mutation_weights.items(), key=lambda item: item[1], reverse=True)
             fallback_mutation_types = [mut for mut, _ in sorted_mutation_types if mut != selected_mutation]
@@ -258,6 +269,11 @@ class GeneticAlgorithm:
                         Chem.SanitizeMol(mutated_mol)
                         mutated_smiles = Chem.MolToSmiles(mutated_mol)
 
+                        # Ensure the molecule has actually mutated and is not just the same
+                        parent_smiles = Chem.MolToSmiles(mol)
+                        if mutated_smiles == parent_smiles:
+                            continue
+
                         if mutated_mol:
                             new_id = f"offspring_{uuid.uuid4().hex[:10]}"
                             self.working_population.add_node(new_id, level="Individual", compounds=[])
@@ -265,9 +281,8 @@ class GeneticAlgorithm:
                             self.working_population.nodes[new_id]["raw_fitness"] = aggregate_fitness(mutated_mol)
                             mutation_successes += 1
                             break
-
-                except Exception as e:
-                    return mutation_attempts, mutation_successes
+                except: # Mutation failed, try again if any remain.
+                    continue
             
         return mutation_attempts, mutation_successes
 
@@ -354,7 +369,13 @@ class GeneticAlgorithm:
         # Calculate survival probabilities using Verhlust-inspired model - capped at carrying capacity.
         survival_probability = verhulst_population_control(len(individuals), self.carrying_capacity)
         fitness_values = np.array([self.working_population.nodes[node]["raw_fitness"] for node in individuals])
-        normalized_fit_values = fitness_values / fitness_values.sum()
+
+        fitness_sum = fitness_values.sum()
+        if fitness_sum == 0 or np.isnan(fitness_sum): # avoiding div errors
+            # if fitness is unavailable weights are all equalized to 1
+            normalized_fit_values = np.ones_like(fitness_values) / len(fitness_values)
+        else:
+            normalized_fit_values = fitness_values / fitness_sum
 
         # Calculate probabilities of removal
         removal_probabilities = (1 - normalized_fit_values) * (1 - survival_probability)
@@ -405,7 +426,7 @@ class GeneticAlgorithm:
             ranked = sorted(individuals, key=lambda node: self.working_population.nodes[node]["raw_fitness"], reverse=True)
             num_elites = int(len(ranked) * (self.elitism_weight / 100))
 
-            # Remove previous generation's elites
+            # Remove previous generation's elite status
             for node in self.working_population.nodes:
                 if self.working_population.nodes[node]["level"] == "Individual":
                     self.working_population.nodes[node]["elite"] = False
@@ -487,8 +508,7 @@ class GeneticAlgorithm:
         # Load fragment library and pass to Fragment Mutation function
         # - These must be initialized here in order to do multi-processing batch runs
         # - otherwise they can cause serialization issues.
-        self.fragment_library = self.load_fragment_library()
-        self.fragment_mutator = FragmentMutation(self.fragment_library)
+        
 
         """
         Starts execution of GA: initialize, run, log.
@@ -502,22 +522,28 @@ class GeneticAlgorithm:
         process = psutil.Process()
         process.cpu_percent(interval=None)
 
+        # Benchmarking and Logging
+        #print("GA: GA complete, logging results")
+        end_time = time.time()
+        runtime = end_time - start_time
+
         # Initialize population and start the GA
         self.initialize_population()
         print("GA: Starting GA...")
         final_population, diversity_log = self.run_ga()
 
-        # Benchmarking and Logging
-        #print("GA: GA complete, logging results")
-        end_time = time.time()
-        runtime = end_time - start_time
         # using oneshot here because I plan on running additional processing benchmarks
         with process.oneshot():
             cpu_usage = process.cpu_percent(interval=None)
             # TODO - implement continuous memory tracking
 
         # Collect fitness results TODO - append other fitness results
-        fitness_results = {'diversity': diversity_log}
+        fitness_results = {
+            'fitness_log': get_fitness_history_log(),
+            'mutation_rate_log': get_mutation_log(),
+            'crossover_rate_log': get_crossover_log(),
+            'diversity': self.diversity_log,
+            }
 
         log_metrics(run_id,
                     timestamp,
@@ -528,7 +554,10 @@ class GeneticAlgorithm:
                     mem_usage=0, # TODO - handle mem calc
                     cpu_usage=cpu_usage,
                     population_type=self.population_type,
-                    fitness_config=FITNESS_CONFIG
+                    fitness_config = {"tuning_weights": get_tuning_weights(),
+                                      "active_filters": get_active_filters(),
+                                      "mw_range": get_mw_range(),
+                                      "logp_range": get_logp_range()}
                     )
         print("GA: Simulation complete.")
 
